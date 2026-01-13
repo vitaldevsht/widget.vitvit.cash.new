@@ -1,0 +1,5 @@
+{
+  "name": "VitVit.Cash",
+  "description": "A seamless, mobile-responsive stablecoin On-Ramp for converting Haitian Gourde (HTG) to USDC on Solana.",
+  "requestFramePermissions": []
+}
