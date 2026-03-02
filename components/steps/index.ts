@@ -1,0 +1,10 @@
+export { default as QuoteStep } from "./QuoteStep";
+export { default as AuthPhoneStep } from "./AuthPhoneStep";
+export { default as AuthEmailStep } from "./AuthEmailStep";
+export { default as VerifyGenericStep } from "./VerifyGenericStep";
+export { default as KYCStep } from "./KYCStep";
+export { default as WalletStep } from "./WalletStep";
+export { default as DepositStep } from "./DepositStep";
+export { default as SuccessStep } from "./SuccessStep";
+export { default as SetPinStep } from "./SetPinStep";
+export { default as EnterPinStep } from "./EnterPinStep";

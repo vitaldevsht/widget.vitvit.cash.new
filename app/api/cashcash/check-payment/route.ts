@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { API_CONFIG } from '../../../../constants';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -12,8 +11,8 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(`https://genpay.solvexalabs.xyz/api/cashcash/check-payment?orderId=${orderId}`, {
         headers: {
-            'Authorization': `Bearer ${API_CONFIG.MONCASH_API_KEY}`,
-            'Business-X-Id': API_CONFIG.MONCASH_BUSINESS_ID
+            'Authorization': `Bearer ${process.env.MONCASH_API_KEY}`,
+            'Business-X-Id': process.env.MONCASH_BUSINESS_ID!
         }
     });
 

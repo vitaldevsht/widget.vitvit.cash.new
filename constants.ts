@@ -1,13 +1,8 @@
-import { Translations } from './types';
+import { Translations } from "./types";
 
-export const HTG_TO_USDC_RATE = 132.50; // Example rate
-export const NETWORK_FEE_USD = 0.05; // Solana is cheap
-export const SERVICE_FEE_PERCENT = 0.02; // 2%
-
-export const API_CONFIG = {
-  MONCASH_BUSINESS_ID: 'a8c3dbf5-1247-4609-a805-009edf974495',
-  MONCASH_API_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhOGMzZGJmNS0xMjQ3LTQ2MDktYTgwNS0wMDllZGY5NzQ0OTUiLCJlbWFpbCI6InNhdXZlbmVsMjAxM0BnbWFpbC5jb20iLCJyb2xlIjoidXNlciIsImlhdCI6MTc2ODMxODE5NywiZXhwIjoxNzk5ODU0MTk3fQ.o3QeJA38vgY2B1D6LoZ6OUFpPJ-DT7i93dZznCDQezA'
-};
+export const HTG_TO_USDC_RATE = 132.5; // Example rate
+export const NETWORK_FEE_USD = 0; // Solana is cheap
+export const SERVICE_FEE_PERCENT = 0; // 2%
 
 export const TRANSLATIONS: Record<string, Translations> = {
   en: {
@@ -21,7 +16,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       help: "Help",
       cookieSettings: "Cookie Settings",
       interested: "Interested in adding this to your site?",
-      getStarted: "Get started"
+      getStarted: "Get started",
     },
     quote: {
       pay: "You pay",
@@ -30,16 +25,17 @@ export const TRANSLATIONS: Record<string, Translations> = {
       cost: "Total cost",
       fees: "Fees",
       total: "Total",
-      buyTitle: "Buy USDC (Solana)",
-      buySubtitle: "Pay with MonCash or Bank Transfer",
+      buyTitle: "Buy/Sell USDC",
+      buySubtitle: "Pay with Mobile money or Bank Transfer",
       exchangeRate: "Rate",
     },
     authPhone: {
       title: "What's your number?",
       subtitle: "We need your phone number to secure your account.",
-      label: "Phone number (Haiti)",
+      label: "Phone number (Whatsapp)",
       placeholder: "e.g. 3123 4567",
-      disclaimer: "By continuing you agree to the Terms of Service and Privacy Policy.",
+      disclaimer:
+        "By continuing you agree to the Terms of Service and Privacy Policy.",
     },
     verifyPhone: {
       title: "Verify your phone",
@@ -63,11 +59,16 @@ export const TRANSLATIONS: Record<string, Translations> = {
     },
     kyc: {
       title: "Verify your identity",
-      subtitle: "To comply with regulations, we need to verify your ID using our secure partner.",
+      subtitle:
+        "To comply with regulations, we need to verify your ID using our secure partner.",
       buttonStart: "Start Verification",
       processing: "Starting verification session...",
-      waiting: "Please complete verification in the new window. We are waiting for confirmation...",
-      error: "Unable to start verification. Please try again."
+      waiting:
+        "Please complete verification in the new window. We are waiting for confirmation...",
+      error: "Unable to start verification. Please try again.",
+      timedOut: "Verification is taking longer than expected.",
+      reopenLink: "Reopen KYC Link",
+      checkAgain: "Check status again",
     },
     wallet: {
       title: "Add a new wallet",
@@ -83,23 +84,67 @@ export const TRANSLATIONS: Record<string, Translations> = {
       processing: "Creating payment...",
       waiting: "Waiting for payment confirmation...",
       error: "Payment creation failed. Please try again.",
-      amountToPay: "Amount to pay"
+      amountToPay: "Amount to pay",
+      selectPaymentMethod: "Select payment method",
+      instant: "Instant",
+      moncashInstant: "Moncash Instant",
+      moncashInstantDesc: "Pay instantly via Moncash API",
+      moncashTransfer: "Moncash Transfer",
+      moncashTransferDesc: "Send to our Moncash number",
+      natcashTransfer: "Natcash Transfer",
+      natcashTransferDesc: "Send to our Natcash number",
+      bankDeposit: "Bank Deposit",
+      bankDepositDesc: "Transfer to our bank account",
+      changePaymentMethod: "Change payment method",
+      sendTo: "Send {amount} HTGV to:",
+      importantTransfer:
+        "After sending, your payment will be verified within 5-15 minutes. Use your phone number ({phone}) as the reference.",
+      sentPayment: "I've sent the payment",
+      amountToTransfer: "Amount to Transfer",
+      chooseBankAccount: "Choose one of the following bank accounts:",
+      accountName: "Account Name",
+      accountNumber: "Account Number",
+      reference: "Reference",
+      importantBank:
+        "Include the reference code in your transfer description. Verification may take 1-2 business days.",
+      madeDeposit: "I've made the deposit",
+      uploadProof: "Upload proof of payment",
+      uploadProofDesc:
+        "Please upload a screenshot or photo of your transfer receipt",
+      removeImage: "Click X to remove",
+      proofRequired: "Proof of payment is required to continue",
     },
     success: {
       title: "Transfer Initiated!",
-      message: "Your payment has been confirmed. You will receive USDC shortly.",
+      message: "When payment confirm. You will receive USDC shortly.",
       txId: "Transaction ID",
       return: "Start New Transaction",
     },
     benefits: {
       title: "Instantly buy crypto",
       secureTitle: "Fast and secure",
-      secureDesc: "Pay faster with MonCash or local transfers that meet the highest security standards.",
+      secureDesc:
+        "Pay faster with MonCash or local transfers that meet the highest security standards.",
       flexibleTitle: "Flexible ways to pay",
       flexibleDesc: "Choose between MonCash, Natcom, or Bank Transfer.",
       feesTitle: "Low fees",
       feesDesc: "Save up to 50% on fees compared to traditional remittances.",
-    }
+    },
+    setPin: {
+      title: "Create a PIN",
+      subtitle: "Set a 6-digit PIN to protect your account after logout.",
+      label: "Enter PIN",
+      confirmLabel: "Confirm PIN",
+      info: "Your PIN will be required to access your account after logout.",
+      mismatch: "PINs do not match. Please try again.",
+    },
+    enterPin: {
+      title: "Enter your PIN",
+      subtitle: "Enter your 6-digit PIN to unlock your account.",
+      label: "PIN",
+      forgot: "Forgot PIN?",
+      error: "Incorrect PIN. Please try again.",
+    },
   },
   fr: {
     common: {
@@ -112,7 +157,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       help: "Aide",
       cookieSettings: "Paramètres des cookies",
       interested: "Intéressé à ajouter ceci à votre site ?",
-      getStarted: "Commencer"
+      getStarted: "Commencer",
     },
     quote: {
       pay: "Vous payez",
@@ -121,16 +166,18 @@ export const TRANSLATIONS: Record<string, Translations> = {
       cost: "Coût total",
       fees: "Frais",
       total: "Total",
-      buyTitle: "Acheter USDC (Solana)",
-      buySubtitle: "Payer avec MonCash ou virement bancaire",
+      buyTitle: "Acheter/Vendre USDC",
+      buySubtitle: "Payer avec Mobile Money ou virement bancaire",
       exchangeRate: "Taux",
     },
     authPhone: {
       title: "Quel est votre numéro ?",
-      subtitle: "Nous avons besoin de votre numéro pour sécuriser votre compte.",
-      label: "Numéro de téléphone (Haïti)",
+      subtitle:
+        "Nous avons besoin de votre numéro pour sécuriser votre compte.",
+      label: "Numéro de téléphone (Whatsapp)",
       placeholder: "ex. 3123 4567",
-      disclaimer: "En continuant, vous acceptez les Conditions et la Politique de confidentialité.",
+      disclaimer:
+        "En continuant, vous acceptez les Conditions et la Politique de confidentialité.",
     },
     verifyPhone: {
       title: "Vérifiez votre téléphone",
@@ -154,11 +201,15 @@ export const TRANSLATIONS: Record<string, Translations> = {
     },
     kyc: {
       title: "Vérifiez votre identité",
-      subtitle: "Pour respecter la réglementation, nous devons vérifier votre identité via notre partenaire sécurisé.",
+      subtitle:
+        "Pour respecter la réglementation, nous devons vérifier votre identité via notre partenaire sécurisé.",
       buttonStart: "Commencer la vérification",
       processing: "Démarrage de la session...",
       waiting: "Veuillez terminer la vérification dans la nouvelle fenêtre...",
-      error: "Impossible de démarrer la vérification."
+      error: "Impossible de démarrer la vérification.",
+      timedOut: "La vérification prend plus de temps que prévu.",
+      reopenLink: "Rouvrir le lien KYC",
+      checkAgain: "Vérifier à nouveau",
     },
     wallet: {
       title: "Ajouter un portefeuille",
@@ -174,23 +225,71 @@ export const TRANSLATIONS: Record<string, Translations> = {
       processing: "Création du paiement...",
       waiting: "En attente de la confirmation du paiement...",
       error: "Échec de la création du paiement.",
-      amountToPay: "Montant à payer"
+      amountToPay: "Montant à payer",
+      selectPaymentMethod: "Sélectionnez le mode de paiement",
+      instant: "Instantané",
+      moncashInstant: "Moncash Instantané",
+      moncashInstantDesc: "Payez instantanément via l'API Moncash",
+      moncashTransfer: "Transfert Moncash",
+      moncashTransferDesc: "Envoyez à notre numéro Moncash",
+      natcashTransfer: "Transfert Natcash",
+      natcashTransferDesc: "Envoyez à notre numéro Natcash",
+      bankDeposit: "Dépôt bancaire",
+      bankDepositDesc: "Transférez vers notre compte bancaire",
+      changePaymentMethod: "Changer le mode de paiement",
+      sendTo: "Envoyez {amount} HTGV à :",
+      importantTransfer:
+        "Après l'envoi, votre paiement sera vérifié dans 5-15 minutes. Utilisez votre numéro de téléphone ({phone}) comme référence.",
+      sentPayment: "J'ai envoyé le paiement",
+      amountToTransfer: "Montant à transférer",
+      chooseBankAccount: "Choisissez l'un des comptes bancaires suivants :",
+      accountName: "Nom du compte",
+      accountNumber: "Numéro de compte",
+      reference: "Référence",
+      importantBank:
+        "Incluez le code de référence dans la description de votre transfert. La vérification peut prendre 1-2 jours ouvrables.",
+      madeDeposit: "J'ai effectué le dépôt",
+      uploadProof: "Télécharger la preuve de paiement",
+      uploadProofDesc:
+        "Veuillez télécharger une capture d'écran ou une photo de votre reçu de transfert",
+      removeImage: "Cliquez sur X pour supprimer",
+      proofRequired: "Une preuve de paiement est requise pour continuer",
     },
     success: {
       title: "Transfert initié !",
-      message: "Votre paiement a été confirmé. Vous recevrez des USDC sous peu.",
+      message:
+        "Quand votre paiement sera confirmé. Vous recevrez des USDC sous peu.",
       txId: "ID de transaction",
       return: "Nouvelle transaction",
     },
     benefits: {
       title: "Achetez de la crypto instantanément",
       secureTitle: "Rapide et sécurisé",
-      secureDesc: "Payez plus rapidement avec MonCash ou des virements locaux répondant aux normes de sécurité les plus élevées.",
+      secureDesc:
+        "Payez plus rapidement avec MonCash ou des virements locaux répondant aux normes de sécurité les plus élevées.",
       flexibleTitle: "Moyens de paiement flexibles",
       flexibleDesc: "Choisissez entre MonCash, Natcom ou virement bancaire.",
       feesTitle: "Frais réduits",
-      feesDesc: "Économisez jusqu'à 50 % sur les frais par rapport aux envois de fonds traditionnels.",
-    }
+      feesDesc:
+        "Économisez jusqu'à 50 % sur les frais par rapport aux envois de fonds traditionnels.",
+    },
+    setPin: {
+      title: "Créer un code PIN",
+      subtitle:
+        "Définissez un code PIN à 6 chiffres pour protéger votre compte après la déconnexion.",
+      label: "Entrez le PIN",
+      confirmLabel: "Confirmez le PIN",
+      info: "Votre PIN sera requis pour accéder à votre compte après la déconnexion.",
+      mismatch: "Les codes PIN ne correspondent pas. Veuillez réessayer.",
+    },
+    enterPin: {
+      title: "Entrez votre PIN",
+      subtitle:
+        "Entrez votre code PIN à 6 chiffres pour déverrouiller votre compte.",
+      label: "PIN",
+      forgot: "PIN oublié ?",
+      error: "Code PIN incorrect. Veuillez réessayer.",
+    },
   },
   ht: {
     common: {
@@ -203,7 +302,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       help: "Èd",
       cookieSettings: "Paramèt Cookie",
       interested: "Enterese ajoute sa a nan sit ou a?",
-      getStarted: "Kòmanse"
+      getStarted: "Kòmanse",
     },
     quote: {
       pay: "Ou peye",
@@ -212,16 +311,17 @@ export const TRANSLATIONS: Record<string, Translations> = {
       cost: "Pri total",
       fees: "Frè",
       total: "Total",
-      buyTitle: "Achte USDC (Solana)",
-      buySubtitle: "Peye ak MonCash oswa Transfè Labank",
+      buyTitle: "Achte/Vann USDC",
+      buySubtitle: "Peye ak lajan mobil oswa Transfè Labank",
       exchangeRate: "To Echanj",
     },
     authPhone: {
       title: "Ki nimewo telefòn ou?",
       subtitle: "Nou bezwen nimewo ou pou sekirize kont ou.",
-      label: "Nimewo telefòn (Ayiti)",
+      label: "Nimewo telefòn (Whatsapp)",
       placeholder: "egz. 3123 4567",
-      disclaimer: "Lè ou kontinye, ou dakò ak Kondisyon Sèvis ak Règleman sou Vi Prive.",
+      disclaimer:
+        "Lè ou kontinye, ou dakò ak Kondisyon Sèvis ak Règleman sou Vi Prive.",
     },
     verifyPhone: {
       title: "Verifye telefòn ou",
@@ -245,11 +345,15 @@ export const TRANSLATIONS: Record<string, Translations> = {
     },
     kyc: {
       title: "Verifye idantite w",
-      subtitle: "Pou respekte lalwa, nou dwe verifye idantite w ak patnè sekirize nou an.",
+      subtitle:
+        "Pou respekte lalwa, nou dwe verifye idantite w ak patnè sekirize nou an.",
       buttonStart: "Kòmanse Verifikasyon",
       processing: "Ap kòmanse sesyon...",
       waiting: "Tanpri konplete verifikasyon an nan nouvo fenèt la...",
-      error: "Pa ka kòmanse verifikasyon an."
+      error: "Pa ka kòmanse verifikasyon an.",
+      timedOut: "Verifikasyon an pran plis tan pase sa nou te atann.",
+      reopenLink: "Ouvri lyen KYC ankò",
+      checkAgain: "Tcheke estati ankò",
     },
     wallet: {
       title: "Ajoute yon nouvo valèt",
@@ -265,22 +369,67 @@ export const TRANSLATIONS: Record<string, Translations> = {
       processing: "Kreye peman...",
       waiting: "N ap tann konfimasyon peman an...",
       error: "Nou pa t 'kapab kreye peman an. Eseye ankò.",
-      amountToPay: "Montant pou peye"
+      amountToPay: "Montant pou peye",
+      selectPaymentMethod: "Chwazi metòd peman",
+      instant: "Imedyatman",
+      moncashInstant: "Moncash Imedyat",
+      moncashInstantDesc: "Peye imedyatman atravè API Moncash",
+      moncashTransfer: "Transfè Moncash",
+      moncashTransferDesc: "Voye nan nimewo Moncash nou an",
+      natcashTransfer: "Transfè Natcash",
+      natcashTransferDesc: "Voye nan nimewo Natcash nou an",
+      bankDeposit: "Depo Labank",
+      bankDepositDesc: "Transfere nan kont labank nou an",
+      changePaymentMethod: "Chanje metòd peman",
+      sendTo: "Voye {amount} HTGV bay:",
+      importantTransfer:
+        "Apre ou voye, y ap verifye peman ou nan 5-15 minit. Sèvi ak nimewo telefòn ou ({phone}) kòm referans.",
+      sentPayment: "Mwen voye peman an",
+      amountToTransfer: "Montan pou transfere",
+      chooseBankAccount: "Chwazi youn nan kont labank sa yo:",
+      accountName: "Non Kont",
+      accountNumber: "Nimewo Kont",
+      reference: "Referans",
+      importantBank:
+        "Mete kòd referans la nan deskripsyon transfè ou a. Verifikasyon ka pran 1-2 jou ouvrab.",
+      madeDeposit: "Mwen fè depo a",
+      uploadProof: "Telechaje prèv peman",
+      uploadProofDesc:
+        "Tanpri telechaje yon screenshot oswa foto resi transfè ou a",
+      removeImage: "Klike sou X pou retire",
+      proofRequired: "Prèv peman obligatwa pou kontinye",
     },
     success: {
       title: "Transfè Lanse!",
-      message: "Peman ou konfime. Ou pral resevwa USDC talè.",
+      message: "Lè pèman an konfime. Wap resevwa USDC a.",
       txId: "ID Tranzaksyon",
       return: "Kòmanse Nouvo Tranzaksyon",
     },
     benefits: {
       title: "Achte kripto touswit",
       secureTitle: "Vit epi an sekirite",
-      secureDesc: "Peye pi vit ak MonCash oswa transfè lokal ki satisfè estanda sekirite ki pi wo yo.",
+      secureDesc:
+        "Peye pi vit ak MonCash oswa transfè lokal ki satisfè estanda sekirite ki pi wo yo.",
       flexibleTitle: "Fason fleksib pou peye",
       flexibleDesc: "Chwazi ant MonCash, Natcom, oswa Transfè Labank.",
       feesTitle: "Frè ki ba",
-      feesDesc: "Ekonomize jiska 50% sou frè konpare ak transfè lajan tradisyonèl yo.",
-    }
-  }
+      feesDesc:
+        "Ekonomize jiska 50% sou frè konpare ak transfè lajan tradisyonèl yo.",
+    },
+    setPin: {
+      title: "Kreye yon kòd PIN",
+      subtitle: "Mete yon kòd PIN 6 chif pou pwoteje kont ou apre dekoneksyon.",
+      label: "Antre PIN",
+      confirmLabel: "Konfime PIN",
+      info: "Y ap mande PIN ou pou aksede kont ou apre dekoneksyon.",
+      mismatch: "Kòd PIN yo pa matche. Tanpri eseye ankò.",
+    },
+    enterPin: {
+      title: "Antre PIN ou",
+      subtitle: "Antre kòd PIN 6 chif ou pou debloke kont ou.",
+      label: "PIN",
+      forgot: "Bliye PIN?",
+      error: "Kòd PIN pa kòrèk. Tanpri eseye ankò.",
+    },
+  },
 };

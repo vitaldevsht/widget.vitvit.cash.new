@@ -1,53 +1,88 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { Language, AppStep } from './types';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { Language, AppStep } from "./types";
+
+interface AuthData {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  refreshToken: string;
+  user: {
+    id: string;
+    user_metadata?: {
+      email_verified?: boolean;
+      ip?: string;
+      key_hash?: string;
+    };
+  } | null;
+}
 
 interface AppState {
   userId: string;
   lang: Language;
   step: AppStep;
-  inputCurrency: 'HTG' | 'USDC';
+  inputCurrency: "HTGV" | "USDC";
   amount: number;
   email: string;
   phone: string;
+  areaCode: string;
   kycSessionId: string | null;
   walletAddress: string;
   orderId: string | null;
+  pin: string | null;
+  isLocked: boolean;
+  authData: AuthData | null;
+
+  lastStep: number | 1;
+
+  setLastStep: (step: number | null) => void;
 
   setUserId: (id: string) => void;
   setLang: (lang: Language) => void;
   setStep: (step: AppStep) => void;
-  setInputCurrency: (currency: 'HTG' | 'USDC') => void;
+  setInputCurrency: (currency: "HTGV" | "USDC") => void;
   setAmount: (amount: number) => void;
   setEmail: (email: string) => void;
   setPhone: (phone: string) => void;
+  setAreaCode: (areaCode: string) => void;
   setKycSessionId: (id: string | null) => void;
   setWalletAddress: (address: string) => void;
   setOrderId: (id: string | null) => void;
+  setPin: (pin: string | null) => void;
+  setIsLocked: (locked: boolean) => void;
+  setAuthData: (data: AuthData | null) => void;
   reset: () => void;
   logout: () => void;
   toggleCurrency: () => void;
 }
 
 const generateUserId = () => {
-    // Simple ID generation for demo purposes
-    return 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+  // Simple ID generation for demo purposes
+  return (
+    "user_" + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+  );
 };
 
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       userId: generateUserId(),
-      lang: 'en',
+      lang: "ht",
       step: AppStep.QUOTE,
-      inputCurrency: 'HTG',
-      amount: 13250,
-      email: '',
-      phone: '',
+      inputCurrency: "HTGV",
+      amount: 1000,
+      email: "",
+      phone: "",
+      areaCode: "509",
       kycSessionId: null,
-      walletAddress: '',
+      walletAddress: "",
       orderId: null,
+      pin: null,
+      isLocked: false,
+      authData: null,
+      lastStep: 1,
 
+      setLastStep: (lastStep) => set({ lastStep }),
       setUserId: (userId) => set({ userId }),
       setLang: (lang) => set({ lang }),
       setStep: (step) => set({ step }),
@@ -55,45 +90,58 @@ export const useAppStore = create<AppState>()(
       setAmount: (amount) => set({ amount }),
       setEmail: (email) => set({ email }),
       setPhone: (phone) => set({ phone }),
+      setAreaCode: (areaCode) => set({ areaCode }),
       setKycSessionId: (kycSessionId) => set({ kycSessionId }),
       setWalletAddress: (walletAddress) => set({ walletAddress }),
       setOrderId: (orderId) => set({ orderId }),
-      toggleCurrency: () => set((state) => {
-        const newCurrency = state.inputCurrency === 'HTG' ? 'USDC' : 'HTG';
-        return { inputCurrency: newCurrency, amount: 0 };
-      }),
-      reset: () => set({
-        step: AppStep.QUOTE,
-        amount: 13250,
-        inputCurrency: 'HTG',
-        orderId: null,
-        // We do NOT reset email, phone, kycSessionId, userId, or walletAddress 
-      }),
-      logout: () => set({
-        userId: generateUserId(),
-        lang: 'en',
-        step: AppStep.QUOTE,
-        inputCurrency: 'HTG',
-        amount: 13250,
-        email: '',
-        phone: '',
-        kycSessionId: null,
-        walletAddress: '',
-        orderId: null
-      })
+      setPin: (pin) => set({ pin }),
+      setIsLocked: (isLocked) => set({ isLocked }),
+      setAuthData: (authData) => set({ authData }),
+      toggleCurrency: () =>
+        set((state) => {
+          const newCurrency = state.inputCurrency === "HTGV" ? "USDC" : "HTGV";
+          return { inputCurrency: newCurrency, amount: 0 };
+        }),
+      reset: () =>
+        set({
+          step: AppStep.QUOTE,
+          amount: 1000,
+          inputCurrency: "HTGV",
+          orderId: null,
+          // We do NOT reset email, phone, kycSessionId, userId, walletAddress, or pin
+        }),
+      logout: () =>
+        set((state) => ({
+          userId: generateUserId(),
+          lang: "en",
+          step: state.pin ? AppStep.ENTER_PIN : AppStep.QUOTE,
+          inputCurrency: "HTGV",
+          amount: 1000,
+          email: "",
+          phone: "",
+          kycSessionId: null,
+          walletAddress: "",
+          orderId: null,
+          pin: state.pin, // Keep the PIN
+          isLocked: !!state.pin, // Lock if PIN exists
+          authData: null,
+        })),
     }),
     {
-      name: 'vitvit-storage', // unique name
-      partialize: (state) => ({ 
+      name: "vitvit-storage", // unique name
+      partialize: (state) => ({
         // Persist these fields
         userId: state.userId,
         lang: state.lang,
         email: state.email,
         phone: state.phone,
+        areaCode: state.areaCode,
         kycSessionId: state.kycSessionId,
         walletAddress: state.walletAddress,
-        orderId: state.orderId
-      }), 
+        orderId: state.orderId,
+        pin: state.pin,
+        authData: state.authData,
+      }),
     }
   )
 );
