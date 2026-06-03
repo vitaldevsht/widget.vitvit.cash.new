@@ -8,8 +8,8 @@ import {
   Loader2,
   X,
   ExternalLinkIcon,
-  ArrowLeftRight,
-  Send,
+  Pencil,
+  Check,
   Eye,
   EyeOff,
   ArrowUpDown,
@@ -73,6 +73,7 @@ const App: React.FC = () => {
     setUserId,
     setPhone,
     setEmail,
+    setWalletAddress,
   } = useAppStore();
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [balancesLoading, setBalancesLoading] = useState(false);
@@ -85,22 +86,41 @@ const App: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [activeForm, setActiveForm] = useState<"change" | "transfer" | null>(
-    "change",
-  );
   const [changeFrom, setChangeFrom] = useState<"HTGV" | "USDC">("HTGV");
   const [changeAmount, setChangeAmount] = useState<string>("");
-  const [transferCurrency, setTransferCurrency] = useState<"HTGV" | "USDC">(
-    "HTGV",
-  );
-  const [transferRecipient, setTransferRecipient] = useState<string>("");
-  const [transferAmount, setTransferAmount] = useState<string>("");
   const [changeSubmitting, setChangeSubmitting] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
   const [changeSuccess, setChangeSuccess] = useState<string | null>(null);
   const [balancesRefreshKey, setBalancesRefreshKey] = useState(0);
 
   const [sent_to_addr, setSent_to_addr] = useState<string | null>(null);
+  const [editingExternalAddress, setEditingExternalAddress] = useState(false);
+  const [externalAddressDraft, setExternalAddressDraft] = useState<string>("");
+
+  const EXTERNAL_ADDRESS_KEY = "partner.external_address";
+
+  const saveExternalAddress = () => {
+    const trimmed = externalAddressDraft.trim();
+    if (trimmed) {
+      setExternalAddress(trimmed);
+      if (sent_to_addr) setSent_to_addr(trimmed);
+      try {
+        sessionStorage.setItem(EXTERNAL_ADDRESS_KEY, trimmed);
+      } catch {}
+    } else {
+      setExternalAddress(null);
+      setSent_to_addr(null);
+      try {
+        sessionStorage.removeItem(EXTERNAL_ADDRESS_KEY);
+      } catch {}
+    }
+    setEditingExternalAddress(false);
+  };
+
+  const startEditExternalAddress = () => {
+    setExternalAddressDraft(externalAddress ?? "");
+    setEditingExternalAddress(true);
+  };
 
   // Display rate (HTGV per 1 USDC) — falls back until rates load
   const displayRate = buyUsdcRate ?? sellUsdcRate ?? 131.15;
@@ -109,30 +129,22 @@ const App: React.FC = () => {
     Language,
     {
       title: string;
-      change: string;
-      transfer: string;
       hide: string;
       show: string;
     }
   > = {
     en: {
       title: "Your balance",
-      change: "Change",
-      transfer: "Transfer",
       hide: "Hide",
       show: "Show",
     },
     fr: {
       title: "Votre solde",
-      change: "Changer",
-      transfer: "Transférer",
       hide: "Masquer",
       show: "Afficher",
     },
     ht: {
       title: "Balans ou",
-      change: "Chanje",
-      transfer: "Transfere",
       hide: "Kache",
       show: "Montre",
     },
@@ -151,87 +163,84 @@ const App: React.FC = () => {
     }).format(n);
   const hide = (s: string) => s.replace(/[\d.,]/g, "•");
 
-  const handleChange = () => {
-    setActiveForm((f) => (f === "change" ? null : "change"));
-  };
-  const handleTransfer = () => {
-    setActiveForm((f) => (f === "transfer" ? null : "transfer"));
-  };
-
   const FORM_LABELS: Record<
     Language,
     {
       changeTitle: string;
       changeSubtitle: string;
-      transferTitle: string;
-      transferSubtitle: string;
       from: string;
       to: string;
       amount: string;
-      recipient: string;
-      recipientPh: string;
       rate: string;
       available: string;
       max: string;
       confirmChange: string;
-      confirmTransfer: string;
       cancel: string;
       insufficient: string;
+      externalAddress: string;
+      sendToExternal: string;
+      off: string;
+      editAddress: string;
+      saveAddress: string;
+      addressPh: string;
     }
   > = {
     en: {
       changeTitle: "Exchange",
       changeSubtitle: "Convert between HTGV and USDC",
-      transferTitle: "Send",
-      transferSubtitle: "Transfer to a wallet or phone",
       from: "From",
       to: "To",
       amount: "Amount",
-      recipient: "Recipient",
-      recipientPh: "Wallet address or phone",
       rate: "Rate",
       available: "Available",
       max: "Max",
       confirmChange: "Confirm exchange",
-      confirmTransfer: "Send now",
       cancel: "Cancel",
       insufficient: "Insufficient balance",
+      externalAddress: "External address",
+      sendToExternal: "Send to external",
+      off: "off",
+      editAddress: "Edit",
+      saveAddress: "Save",
+      addressPh: "External wallet address",
     },
     fr: {
       changeTitle: "Échanger",
       changeSubtitle: "Convertir entre HTGV et USDC",
-      transferTitle: "Envoyer",
-      transferSubtitle: "Transférer vers un wallet ou téléphone",
       from: "De",
       to: "Vers",
       amount: "Montant",
-      recipient: "Destinataire",
-      recipientPh: "Adresse wallet ou téléphone",
       rate: "Taux",
       available: "Disponible",
       max: "Max",
       confirmChange: "Confirmer l'échange",
-      confirmTransfer: "Envoyer",
       cancel: "Annuler",
       insufficient: "Solde insuffisant",
+      externalAddress: "Adresse externe",
+      sendToExternal: "Envoyer vers externe",
+      off: "off",
+      editAddress: "Modifier",
+      saveAddress: "Enregistrer",
+      addressPh: "Adresse wallet externe",
     },
     ht: {
       changeTitle: "Chanje",
       changeSubtitle: "Konvèti ant HTGV ak USDC",
-      transferTitle: "Voye",
-      transferSubtitle: "Transfere nan wallet oswa telefòn",
       from: "Soti",
       to: "Ale",
       amount: "Montan",
-      recipient: "Moun k ap resevwa",
-      recipientPh: "Adrès wallet oswa telefòn",
       rate: "To",
       available: "Disponib",
       max: "Maks",
       confirmChange: "Konfime chanjman",
-      confirmTransfer: "Voye kounye a",
       cancel: "Anile",
       insufficient: "Pa gen ase lajan",
+      externalAddress: "Adrès deyò",
+      sendToExternal: "Voye nan adrès deyò",
+      off: "off",
+      editAddress: "Chanje",
+      saveAddress: "Anrejistre",
+      addressPh: "Adrès wallet deyò",
     },
   };
   const fl = FORM_LABELS[lang];
@@ -246,15 +255,6 @@ const App: React.FC = () => {
   const changeBalance = changeFrom === "HTGV" ? balanceHTGV : balanceUSDC;
   const changeInsufficient = changeAmtNum > changeBalance;
   const changeDisabled = changeAmtNum <= 0 || changeInsufficient;
-
-  const transferAmtNum = Number(transferAmount) || 0;
-  const transferBalance =
-    transferCurrency === "HTGV" ? balanceHTGV : balanceUSDC;
-  const transferInsufficient = transferAmtNum > transferBalance;
-  const transferDisabled =
-    transferAmtNum <= 0 ||
-    transferRecipient.trim().length < 6 ||
-    transferInsufficient;
 
   const formatAmt = (n: number, c: "HTGV" | "USDC") =>
     c === "HTGV" ? formatHTGV(n) : formatUSDC(n);
@@ -393,6 +393,35 @@ const App: React.FC = () => {
     };
   }, [userId, accessToken, balancesRefreshKey, setBalanceHTGV, setBalanceUSDC]);
 
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/partner/user?user_id=${encodeURIComponent(userId)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data?.phone) {
+          setPhone(String(data.phone).replace(/^\+?509/, ""));
+        }
+        if (data?.email) setEmail(data.email);
+        if (data?.wallet_address) setWalletAddress(data.wallet_address);
+      } catch (e) {
+        console.error("Failed to load partner user", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, setPhone, setEmail, setWalletAddress]);
+
   const handleConfirmChange = async () => {
     if (!userId || changeDisabled || changeSubmitting) return;
     setChangeSubmitting(true);
@@ -403,7 +432,6 @@ const App: React.FC = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           user_id: userId,
@@ -490,14 +518,7 @@ const App: React.FC = () => {
 
       <div className="flex items-center gap-2">
         {/* Language Switcher */}
-        <button
-          onClick={() => {
-            window.open("https://8cd80508fff7.ngrok-free.app");
-          }}
-          className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-colors uppercase"
-        >
-          <ExternalLinkIcon size={16} />
-        </button>
+
         <div className="relative group z-20">
           <button className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-colors uppercase">
             {lang}
@@ -543,11 +564,11 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F6F9FC] flex flex-col lg:flex-row">
       {/* Left / Main Content Area */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-8">
-        <div className="w-full max-w-[440px] lg:bg-white p-6 sm:p-8 transition-all duration-300 relative">
+      <div className="flex-1 flex flex-col  items-center  lg:p-8">
+        <div className="w-full max-w-[440px] lg:bg-white lg:p-8 transition-all duration-300 relative">
           <Header />
 
-          <div className="transition-opacity duration-300 min-h-[65vh]">
+          <div className="transition-opacity duration-300 min-h-[55vh]">
             {sessionError && (
               <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
                 {sessionError}
@@ -625,38 +646,10 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={handleChange}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-lg border font-semibold text-sm transition-all active:scale-[0.99] ${
-                    activeForm === "change"
-                      ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-[#0DB7D0] hover:text-[#0DB7D0] hover:bg-cyan-50/40"
-                  }`}
-                >
-                  <ArrowLeftRight size={16} />
-                  <span>{bl.change}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleTransfer}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm shadow-sm transition-all active:scale-[0.99] ${
-                    activeForm === "transfer"
-                      ? "bg-[#0A92A6] text-white"
-                      : "bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 text-white"
-                  }`}
-                >
-                  <Send size={16} />
-                  <span>{bl.transfer}</span>
-                </button>
-              </div>
             </div>
 
             {/* Change Form */}
-            {activeForm === "change" && (
-              <div className="mt-4 pt-4 border-t border-slate-200 space-y-2.5">
+            <div className="mt-4 pt-4 border-t border-slate-200 space-y-2.5">
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-sm font-bold text-slate-900">
                     {fl.changeTitle}
@@ -666,25 +659,78 @@ const App: React.FC = () => {
                   </span>
                 </div>
 
-                {externalAddress && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSent_to_addr((curr) => (curr ? null : externalAddress))
-                    }
+                {/* External address */}
+                {editingExternalAddress ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={externalAddressDraft}
+                      onChange={(e) => setExternalAddressDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveExternalAddress();
+                        if (e.key === "Escape")
+                          setEditingExternalAddress(false);
+                      }}
+                      placeholder={fl.addressPh}
+                      className="flex-1 min-w-0 px-2.5 py-1.5 border border-[#0DB7D0] bg-white rounded-md outline-none focus:ring-1 focus:ring-[#0DB7D0]/30 text-[11px] text-slate-900 placeholder-slate-400 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={saveExternalAddress}
+                      aria-label={fl.saveAddress}
+                      className="p-1.5 rounded-md bg-[#0DB7D0] text-white hover:bg-[#0DB7D0]/90 transition-all"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingExternalAddress(false)}
+                      aria-label={fl.cancel}
+                      className="p-1.5 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 transition-all"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
                     className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border text-[10px] font-semibold transition-all ${
                       sent_to_addr
                         ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-[#0DB7D0] hover:text-[#0DB7D0]"
+                        : "border-slate-200 bg-white text-slate-500"
                     }`}
                   >
-                    <span className="uppercase tracking-wider">
-                      Send to external
-                    </span>
-                    <span className="font-mono normal-case truncate max-w-[180px]">
-                      {sent_to_addr ? sent_to_addr : "off"}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        externalAddress &&
+                        setSent_to_addr((curr) =>
+                          curr ? null : externalAddress,
+                        )
+                      }
+                      disabled={!externalAddress}
+                      className="flex-1 flex items-center justify-between gap-2 min-w-0 disabled:cursor-default"
+                    >
+                      <span className="uppercase tracking-wider">
+                        {fl.sendToExternal}
+                      </span>
+                      <span className="font-mono normal-case truncate max-w-[160px]">
+                        {sent_to_addr
+                          ? sent_to_addr
+                          : externalAddress
+                            ? externalAddress
+                            : fl.off}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={startEditExternalAddress}
+                      aria-label={fl.editAddress}
+                      className="p-1 rounded text-slate-400 hover:text-[#0DB7D0] transition-all"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  </div>
                 )}
                 {/* From */}
                 <div>
@@ -770,90 +816,6 @@ const App: React.FC = () => {
                   {fl.confirmChange}
                 </button>
               </div>
-            )}
-
-            {/* Transfer Form */}
-            {activeForm === "transfer" && (
-              <div className="mt-4 pt-4 border-t border-slate-200 space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {fl.transferTitle}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-0.5 p-0.5 bg-slate-100 rounded-md">
-                    {(["HTGV", "USDC"] as const).map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setTransferCurrency(c)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded transition-all ${
-                          transferCurrency === c
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Recipient */}
-                <input
-                  type="text"
-                  value={transferRecipient}
-                  onChange={(e) => setTransferRecipient(e.target.value)}
-                  placeholder={fl.recipientPh}
-                  className="w-full px-2.5 py-2 border border-slate-300 bg-white rounded-md outline-none focus:ring-1 focus:ring-[#0DB7D0]/30 focus:border-[#0DB7D0] transition-all text-xs text-slate-900 placeholder-slate-400 font-mono"
-                />
-
-                {/* Amount */}
-                <div>
-                  <div className="flex items-center border border-slate-300 bg-white rounded-md px-2.5 py-2 gap-2">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase">
-                      {fl.amount}
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={transferAmount}
-                      onChange={(e) => setTransferAmount(e.target.value)}
-                      placeholder="0"
-                      className="flex-1 text-base font-semibold text-slate-900 outline-none placeholder-slate-300 bg-transparent tabular-nums min-w-0"
-                    />
-                    <span className="text-[11px] font-bold text-slate-500">
-                      {transferCurrency}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-0.5 px-0.5">
-                    <span className="text-[10px] text-slate-400">
-                      {fl.available}:{" "}
-                      {formatAmt(transferBalance, transferCurrency)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setTransferAmount(String(transferBalance))}
-                      className="text-[10px] font-semibold text-[#0DB7D0] hover:underline"
-                    >
-                      {fl.max}
-                    </button>
-                  </div>
-                </div>
-
-                {transferInsufficient && (
-                  <p className="text-[11px] text-red-500">{fl.insufficient}</p>
-                )}
-
-                <button
-                  type="button"
-                  disabled={transferDisabled}
-                  onClick={() => setStep(AppStep.WALLET)}
-                  className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-md text-sm shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-1.5"
-                >
-                  <Send size={13} />
-                  {fl.confirmTransfer}
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center">

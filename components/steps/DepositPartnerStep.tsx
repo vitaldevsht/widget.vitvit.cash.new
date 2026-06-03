@@ -95,6 +95,9 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   const [amountInput, setAmountInput] = useState<string>(
     amount > 0 ? String(amount) : "",
   );
+  const [sendToExternal, setSendToExternal] = useState<boolean>(
+    Boolean(profile?.external_address),
+  );
   const forexTriggeredRef = useRef(false);
 
   const goHome = () => {
@@ -298,7 +301,7 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
                   token_1: "HTGV",
                   token_2: "USDC",
                   amount: amount,
-                  sent_to: external_address,
+                  sent_to: sendToExternal ? external_address : null,
                 }),
               });
               const data = await res.json().catch(() => ({}));
@@ -339,7 +342,7 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   }, []);
 
   return (
-    <div className="text-center py-6 space-y-6 min-h-[80vh] flex flex-col">
+    <div className="text-center py-6 space-y-6 min-h-[70vh] flex flex-col">
       <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
         <CreditCard size={28} className="text-emerald-600" />
       </div>
@@ -353,31 +356,51 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
         </p>
       </div>
 
-      <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-left">
-        <label className="block text-xs text-slate-500 mb-1 uppercase tracking-wide">
-          {t.deposit.amountToPay}
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
-            disabled={!amountEditable}
-            placeholder="0"
-            className="flex-1 bg-transparent outline-none text-2xl font-bold text-slate-900 tabular-nums placeholder-slate-300 disabled:opacity-60 min-w-0"
-          />
-          <span className="text-xs font-bold text-slate-500 px-2 py-1 rounded bg-white border border-slate-200">
-            {"HTG"}
+      {external_address && !succeeded && (
+        <button
+          type="button"
+          onClick={() => setSendToExternal((v) => !v)}
+          disabled={!amountEditable}
+          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-[11px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+            sendToExternal
+              ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
+              : "border-slate-200 bg-white text-slate-500 hover:border-[#0DB7D0] hover:text-[#0DB7D0]"
+          }`}
+          aria-pressed={sendToExternal}
+        >
+          <span className="uppercase tracking-wider">Send to external</span>
+          <span className="font-mono normal-case truncate max-w-[180px]">
+            {sendToExternal ? external_address : "off"}
           </span>
+        </button>
+      )}
+      {!succeeded && (
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-left">
+          <label className="block text-xs text-slate-500 mb-1 uppercase tracking-wide">
+            {t.deposit.amountToPay}
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={amountInput}
+              onChange={(e) => setAmountInput(e.target.value)}
+              disabled={!amountEditable}
+              placeholder="0"
+              className="flex-1 bg-transparent outline-none text-2xl font-bold text-slate-900 tabular-nums placeholder-slate-300 disabled:opacity-60 min-w-0"
+            />
+            <span className="text-xs font-bold text-slate-500 px-2 py-1 rounded bg-white border border-slate-200">
+              {"HTG"}
+            </span>
+          </div>
+          {inputCurrency !== "HTGV" && (
+            <p className="mt-2 text-xs text-slate-500">
+              ≈ {totalAmount.toLocaleString("en-US")} HTG
+            </p>
+          )}
         </div>
-        {inputCurrency !== "HTGV" && (
-          <p className="mt-2 text-xs text-slate-500">
-            ≈ {totalAmount.toLocaleString("en-US")} HTG
-          </p>
-        )}
-      </div>
+      )}
 
       {error && (
         <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 break-words">
@@ -393,12 +416,62 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
               {t.success.title}
             </p>
             <p className="text-xs text-slate-500 mb-5">{t.success.message}</p>
-            <button
+
+            <div className="bg-slate-50 rounded-lg p-4 mb-5 text-left space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Deposited</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {totalAmount.toLocaleString("en-US")} HTG
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Exchange rate</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  1 USDC = {HTG_TO_USDC_RATE} HTG
+                </span>
+              </div>
+              {SERVICE_FEE_PERCENT > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Service fee</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">
+                    {(SERVICE_FEE_PERCENT * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
+              {NETWORK_FEE_USD > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Network fee</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">
+                    {NETWORK_FEE_USD} USDC
+                  </span>
+                </div>
+              )}
+              <div className="border-t border-slate-200 pt-2 flex justify-between">
+                <span className="text-slate-500">You received</span>
+                <span className="font-bold text-emerald-600 tabular-nums">
+                  {(inputCurrency === "HTGV"
+                    ? currentAmount / HTG_TO_USDC_RATE
+                    : currentAmount
+                  ).toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
+                  USDC
+                </span>
+              </div>
+              {sendToExternal && external_address && (
+                <div className="border-t border-slate-200 pt-2">
+                  <p className="text-slate-500 mb-1">Sent to</p>
+                  <p className="font-mono text-[10px] text-slate-700 break-all">
+                    {external_address}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* <button
               onClick={goHome}
               className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/80 text-white font-semibold py-3 rounded-lg shadow-sm transition-all active:scale-[0.99]"
             >
               {t.success.return}
-            </button>
+            </button> */}
           </div>
         ) : failed ? (
           <div className="bg-white rounded-lg p-6 border border-red-100 shadow-sm">

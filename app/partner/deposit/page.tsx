@@ -30,10 +30,9 @@ const DepositContent = () => {
     // <div className="min-h-screen bg-[#F6F9FC]  px-10 lg:max-w-2xl mx-auto w-full max-w-[440px]">
 
     // </div>
-
     <div className="min-h-screen bg-[#F6F9FC] flex flex-col lg:flex-row">
       {/* Left / Main Content Area */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-8">
+      <div className="flex-1 flex flex-col  items-center  lg:p-8">
         <div className="w-full max-w-[440px] lg:bg-white p-6 sm:p-8 transition-all duration-300 relative">
           <DepositStep t={t} amount={validAmount} profile={profile} />
         </div>
