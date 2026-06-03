@@ -33,6 +33,11 @@ interface AppState {
   isLocked: boolean;
   authData: AuthData | null;
 
+  balanceHTGV: number;
+  balanceUSDC: number;
+  setBalanceHTGV: (amount: number) => void;
+  setBalanceUSDC: (amount: number) => void;
+
   lastStep: number | 1;
 
   setLastStep: (step: number | null) => void;
@@ -80,6 +85,10 @@ export const useAppStore = create<AppState>()(
       pin: null,
       isLocked: false,
       authData: null,
+      balanceHTGV: 0,
+      balanceUSDC: 0,
+      setBalanceHTGV: (balanceHTGV) => set({ balanceHTGV }),
+      setBalanceUSDC: (balanceUSDC) => set({ balanceUSDC }),
       lastStep: 1,
 
       setLastStep: (lastStep) => set({ lastStep }),
@@ -141,6 +150,8 @@ export const useAppStore = create<AppState>()(
         orderId: state.orderId,
         pin: state.pin,
         authData: state.authData,
+        balanceHTGV: state.balanceHTGV,
+        balanceUSDC: state.balanceUSDC,
       }),
     }
   )

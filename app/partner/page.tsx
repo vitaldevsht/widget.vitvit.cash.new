@@ -1,0 +1,879 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import {
+  ArrowLeft,
+  MoreHorizontal,
+  Zap,
+  Loader2,
+  X,
+  ExternalLinkIcon,
+  ArrowLeftRight,
+  Send,
+  Eye,
+  EyeOff,
+  ArrowUpDown,
+} from "lucide-react";
+import { TRANSLATIONS } from "../../constants";
+import { Language, AppStep } from "../../types";
+import Sidebar from "../../components/Sidebar";
+import AccountMenu from "../../components/AccountMenu";
+import {
+  QuoteStep,
+  AuthPhoneStep,
+  AuthEmailStep,
+  VerifyGenericStep,
+  KYCStep,
+  WalletStep,
+  DepositStep,
+  SuccessStep,
+  SetPinStep,
+  EnterPinStep,
+} from "../../components/steps";
+import { useAppStore } from "../../store";
+
+interface BalanceItem {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  tokenAddress: string;
+  amount: number;
+}
+
+interface RateItem {
+  label: string;
+  HTGV_USDC?: number;
+  USDC_HTGV?: number;
+  HTGV_USD?: number;
+  USD_HTGV?: number;
+}
+
+interface UserBalancesResponse {
+  balances: BalanceItem[];
+  rates: RateItem[];
+}
+
+const App: React.FC = () => {
+  const {
+    lang,
+    setLang,
+    step,
+    setStep,
+    lastStep,
+    phone,
+    email,
+    kycSessionId,
+    setAuthData,
+    userId,
+    balanceHTGV,
+    balanceUSDC,
+    setBalanceHTGV,
+    setBalanceUSDC,
+    setUserId,
+    setPhone,
+    setEmail,
+  } = useAppStore();
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [balancesLoading, setBalancesLoading] = useState(false);
+  const [balancesError, setBalancesError] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [externalAddress, setExternalAddress] = useState<string | null>(null);
+  const [buyUsdcRate, setBuyUsdcRate] = useState<number | null>(null);
+  const [sellUsdcRate, setSellUsdcRate] = useState<number | null>(null);
+  const t = TRANSLATIONS[lang];
+  const [isMounted, setIsMounted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [balanceVisible, setBalanceVisible] = useState(true);
+  const [activeForm, setActiveForm] = useState<"change" | "transfer" | null>(
+    "change",
+  );
+  const [changeFrom, setChangeFrom] = useState<"HTGV" | "USDC">("HTGV");
+  const [changeAmount, setChangeAmount] = useState<string>("");
+  const [transferCurrency, setTransferCurrency] = useState<"HTGV" | "USDC">(
+    "HTGV",
+  );
+  const [transferRecipient, setTransferRecipient] = useState<string>("");
+  const [transferAmount, setTransferAmount] = useState<string>("");
+  const [changeSubmitting, setChangeSubmitting] = useState(false);
+  const [changeError, setChangeError] = useState<string | null>(null);
+  const [changeSuccess, setChangeSuccess] = useState<string | null>(null);
+  const [balancesRefreshKey, setBalancesRefreshKey] = useState(0);
+
+  const [sent_to_addr, setSent_to_addr] = useState<string | null>(null);
+
+  // Display rate (HTGV per 1 USDC) — falls back until rates load
+  const displayRate = buyUsdcRate ?? sellUsdcRate ?? 131.15;
+
+  const BALANCE_LABELS: Record<
+    Language,
+    {
+      title: string;
+      change: string;
+      transfer: string;
+      hide: string;
+      show: string;
+    }
+  > = {
+    en: {
+      title: "Your balance",
+      change: "Change",
+      transfer: "Transfer",
+      hide: "Hide",
+      show: "Show",
+    },
+    fr: {
+      title: "Votre solde",
+      change: "Changer",
+      transfer: "Transférer",
+      hide: "Masquer",
+      show: "Afficher",
+    },
+    ht: {
+      title: "Balans ou",
+      change: "Chanje",
+      transfer: "Transfere",
+      hide: "Kache",
+      show: "Montre",
+    },
+  };
+  const bl = BALANCE_LABELS[lang];
+
+  const formatHTGV = (n: number) =>
+    new Intl.NumberFormat("fr-HT", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  const formatUSDC = (n: number) =>
+    new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  const hide = (s: string) => s.replace(/[\d.,]/g, "•");
+
+  const handleChange = () => {
+    setActiveForm((f) => (f === "change" ? null : "change"));
+  };
+  const handleTransfer = () => {
+    setActiveForm((f) => (f === "transfer" ? null : "transfer"));
+  };
+
+  const FORM_LABELS: Record<
+    Language,
+    {
+      changeTitle: string;
+      changeSubtitle: string;
+      transferTitle: string;
+      transferSubtitle: string;
+      from: string;
+      to: string;
+      amount: string;
+      recipient: string;
+      recipientPh: string;
+      rate: string;
+      available: string;
+      max: string;
+      confirmChange: string;
+      confirmTransfer: string;
+      cancel: string;
+      insufficient: string;
+    }
+  > = {
+    en: {
+      changeTitle: "Exchange",
+      changeSubtitle: "Convert between HTGV and USDC",
+      transferTitle: "Send",
+      transferSubtitle: "Transfer to a wallet or phone",
+      from: "From",
+      to: "To",
+      amount: "Amount",
+      recipient: "Recipient",
+      recipientPh: "Wallet address or phone",
+      rate: "Rate",
+      available: "Available",
+      max: "Max",
+      confirmChange: "Confirm exchange",
+      confirmTransfer: "Send now",
+      cancel: "Cancel",
+      insufficient: "Insufficient balance",
+    },
+    fr: {
+      changeTitle: "Échanger",
+      changeSubtitle: "Convertir entre HTGV et USDC",
+      transferTitle: "Envoyer",
+      transferSubtitle: "Transférer vers un wallet ou téléphone",
+      from: "De",
+      to: "Vers",
+      amount: "Montant",
+      recipient: "Destinataire",
+      recipientPh: "Adresse wallet ou téléphone",
+      rate: "Taux",
+      available: "Disponible",
+      max: "Max",
+      confirmChange: "Confirmer l'échange",
+      confirmTransfer: "Envoyer",
+      cancel: "Annuler",
+      insufficient: "Solde insuffisant",
+    },
+    ht: {
+      changeTitle: "Chanje",
+      changeSubtitle: "Konvèti ant HTGV ak USDC",
+      transferTitle: "Voye",
+      transferSubtitle: "Transfere nan wallet oswa telefòn",
+      from: "Soti",
+      to: "Ale",
+      amount: "Montan",
+      recipient: "Moun k ap resevwa",
+      recipientPh: "Adrès wallet oswa telefòn",
+      rate: "To",
+      available: "Disponib",
+      max: "Maks",
+      confirmChange: "Konfime chanjman",
+      confirmTransfer: "Voye kounye a",
+      cancel: "Anile",
+      insufficient: "Pa gen ase lajan",
+    },
+  };
+  const fl = FORM_LABELS[lang];
+
+  const changeTo = changeFrom === "HTGV" ? "USDC" : "HTGV";
+  const changeAmtNum = Number(changeAmount) || 0;
+  // HTGV→USDC uses the BUY USDC rate; USDC→HTGV uses the SELL USDC rate.
+  const buyRate = buyUsdcRate ?? displayRate;
+  const sellRate = sellUsdcRate ?? displayRate;
+  const changeReceive =
+    changeFrom === "HTGV" ? changeAmtNum / buyRate : changeAmtNum * sellRate;
+  const changeBalance = changeFrom === "HTGV" ? balanceHTGV : balanceUSDC;
+  const changeInsufficient = changeAmtNum > changeBalance;
+  const changeDisabled = changeAmtNum <= 0 || changeInsufficient;
+
+  const transferAmtNum = Number(transferAmount) || 0;
+  const transferBalance =
+    transferCurrency === "HTGV" ? balanceHTGV : balanceUSDC;
+  const transferInsufficient = transferAmtNum > transferBalance;
+  const transferDisabled =
+    transferAmtNum <= 0 ||
+    transferRecipient.trim().length < 6 ||
+    transferInsufficient;
+
+  const formatAmt = (n: number, c: "HTGV" | "USDC") =>
+    c === "HTGV" ? formatHTGV(n) : formatUSDC(n);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setLang("ht");
+    setStep(2);
+
+    const ACCESS_TOKEN_KEY = "partner.access_token";
+    const EXTERNAL_ADDRESS_KEY = "partner.external_address";
+
+    // 1. Credentials in the URL win (fresh entry from partner).
+    const params = new URLSearchParams(window.location.search);
+    const urlUserId = params.get("user_id");
+    const urlAccessToken = params.get("access_token");
+    const urlExternalAddress = params.get("external_address");
+
+    if (urlUserId) {
+      setUserId(urlUserId);
+      if (urlAccessToken) {
+        setAccessToken(urlAccessToken);
+        try {
+          sessionStorage.setItem(ACCESS_TOKEN_KEY, urlAccessToken);
+        } catch {}
+      }
+      if (urlExternalAddress) {
+        setExternalAddress(urlExternalAddress);
+        try {
+          sessionStorage.setItem(EXTERNAL_ADDRESS_KEY, urlExternalAddress);
+        } catch {}
+      }
+
+      // Strip the sensitive params from the address bar / history.
+      params.delete("user_id");
+      params.delete("access_token");
+      params.delete("external_address");
+      const cleaned =
+        window.location.pathname +
+        (params.toString() ? `?${params.toString()}` : "") +
+        window.location.hash;
+      window.history.replaceState(null, "", cleaned);
+      return;
+    }
+
+    // 2. Refresh path: userId persists via the store. Re-hydrate the
+    //    access_token from sessionStorage and skip the session call.
+    const storedToken = (() => {
+      try {
+        return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+      } catch {
+        return null;
+      }
+    })();
+    if (storedToken) setAccessToken(storedToken);
+    const storedExternalAddress = (() => {
+      try {
+        return sessionStorage.getItem(EXTERNAL_ADDRESS_KEY);
+      } catch {
+        return null;
+      }
+    })();
+    if (storedExternalAddress) setExternalAddress(storedExternalAddress);
+    if (userId) return;
+
+    // 3. No URL params, no persisted userId — try the cookie session.
+    (async () => {
+      try {
+        const res = await fetch("/api/partner/session", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSessionError(data?.error || "Not authenticated");
+          return;
+        }
+        const data = await res.json();
+        const u = data?.user;
+        if (u?.id) setUserId(u.id);
+        if (u?.phone) setPhone(String(u.phone).replace(/^\+?509/, ""));
+        if (u?.email) setEmail(u.email);
+      } catch (e: any) {
+        console.error("Failed to load session", e);
+        setSessionError(e?.message || "Failed to load session");
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    setBalancesLoading(true);
+    setBalancesError(null);
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/partner/user-balances?user_id=${encodeURIComponent(userId)}`,
+          {
+            cache: "no-store",
+            headers: accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : undefined,
+          },
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || `Request failed (${res.status})`);
+        }
+        const data: UserBalancesResponse = await res.json();
+        if (cancelled) return;
+
+        const htgv = data.balances?.find((b) => b.symbol === "HTGV");
+        const usdc = data.balances?.find((b) => b.symbol === "USDC");
+        setBalanceHTGV(htgv?.amount ?? 0);
+        setBalanceUSDC(usdc?.amount ?? 0);
+
+        const buy = data.rates?.find((r) => r.label === "BUY USDC")?.HTGV_USDC;
+        const sell = data.rates?.find(
+          (r) => r.label === "SELL USDC",
+        )?.USDC_HTGV;
+        if (typeof buy === "number") setBuyUsdcRate(buy);
+        if (typeof sell === "number") setSellUsdcRate(sell);
+      } catch (e: any) {
+        if (cancelled) return;
+        console.error("Failed to load balances", e);
+        setBalancesError(e?.message || "Failed to load balances");
+      } finally {
+        if (!cancelled) setBalancesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, accessToken, balancesRefreshKey, setBalanceHTGV, setBalanceUSDC]);
+
+  const handleConfirmChange = async () => {
+    if (!userId || changeDisabled || changeSubmitting) return;
+    setChangeSubmitting(true);
+    setChangeError(null);
+    setChangeSuccess(null);
+    try {
+      const res = await fetch("/api/exchange/forex", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          token_1: changeFrom,
+          token_2: changeTo,
+          amount: changeAmtNum,
+          sent_to: sent_to_addr,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          data?.details || data?.error || `Request failed (${res.status})`,
+        );
+      }
+      setChangeSuccess(
+        `${formatAmt(changeAmtNum, changeFrom)} ${changeFrom} → ${formatAmt(
+          changeReceive,
+          changeTo,
+        )} ${changeTo}`,
+      );
+      setChangeAmount("");
+      setBalancesRefreshKey((k) => k + 1);
+    } catch (e: any) {
+      console.error("Exchange failed", e);
+      setChangeError(e?.message || "Exchange failed");
+    } finally {
+      setChangeSubmitting(false);
+    }
+  };
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-[#F6F9FC] flex items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  const handlePhoneVerifyComplete = () => {
+    if (kycSessionId) {
+      setStep(AppStep.WALLET);
+    } else {
+      setStep(AppStep.KYC);
+    }
+  };
+
+  const goBack = () => {
+    // if (step > 1) setStep(step - 1);
+    setStep(1);
+  };
+
+  const Header = () => (
+    <div className="flex justify-between items-center mb-6 relative">
+      <div className="flex items-center gap-4">
+        {/* {step >= AppStep.AUTH_EMAIL && step <= AppStep.DEPOSIT && (
+          <button
+            onClick={goBack}
+            className="p-1 -ml-1 text-slate-400 hover:text-slate-600 transition-colors rounded-full hover:bg-slate-100"
+          >
+            <X size={20} />
+          </button>
+        )} */}
+        {(step === AppStep.QUOTE ||
+          step === AppStep.SET_PIN ||
+          step === AppStep.ENTER_PIN) && (
+          <div className="flex items-center gap-1 text-emerald-600 font-bold text-lg tracking-tight">
+            {/* <Zap className="fill-current" size={20} />
+            <span>VitVit.Cash</span> */}
+          </div>
+        )}
+        {/* {step >= AppStep.AUTH_EMAIL && step <= AppStep.DEPOSIT && (
+          <div className="text-sm font-medium text-slate-500">
+            {step === AppStep.AUTH_EMAIL && t.authEmail.title}
+            {step === AppStep.VERIFY_EMAIL && t.verifyEmail.title}
+            {step === AppStep.AUTH_PHONE && t.authPhone.title}
+            {step === AppStep.VERIFY_PHONE && t.verifyPhone.title}
+            {step === AppStep.KYC && t.kyc.title}
+            {step === AppStep.WALLET && t.wallet.title}
+            {step === AppStep.DEPOSIT && t.deposit.title}
+          </div>
+        )} */}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {/* Language Switcher */}
+        <button
+          onClick={() => {
+            window.open("https://8cd80508fff7.ngrok-free.app");
+          }}
+          className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-colors uppercase"
+        >
+          <ExternalLinkIcon size={16} />
+        </button>
+        <div className="relative group z-20">
+          <button className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-colors uppercase">
+            {lang}
+          </button>
+          <div className="absolute right-0 top-full pt-1 w-24 hidden group-hover:block">
+            <div className="bg-white rounded shadow-lg border border-slate-100 overflow-hidden">
+              {(Object.keys(TRANSLATIONS) as Language[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`block w-full text-left px-3 py-2 text-xs hover:bg-slate-50 ${
+                    lang === l ? "font-bold text-emerald-600" : "text-slate-600"
+                  } `}
+                >
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Menu Button & Dropdown */}
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(!menuOpen);
+            }}
+            className={`p-1 cursor-pointer rounded-full transition-colors ${
+              menuOpen
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <MoreHorizontal size={20} />
+          </button>
+          <AccountMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#F6F9FC] flex flex-col lg:flex-row">
+      {/* Left / Main Content Area */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-8">
+        <div className="w-full max-w-[440px] lg:bg-white p-6 sm:p-8 transition-all duration-300 relative">
+          <Header />
+
+          <div className="transition-opacity duration-300 min-h-[65vh]">
+            {sessionError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                {sessionError}
+              </div>
+            )}
+            {balancesError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                {balancesError}
+              </div>
+            )}
+            {/* Main */}
+            <div className="space-y-5">
+              {/* Balance header */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  {bl.title}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBalanceVisible((v) => !v)}
+                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+                  aria-label={balanceVisible ? bl.hide : bl.show}
+                >
+                  {balanceVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <span>{balanceVisible ? bl.hide : bl.show}</span>
+                </button>
+              </div>
+
+              {/* Balances */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      HTGV
+                    </span>
+                    <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-600 grid place-items-center text-[10px] font-bold">
+                      G
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xl font-bold text-slate-900 tabular-nums h-7 flex items-center">
+                    {balancesLoading ? (
+                      <span className="inline-block h-5 w-20 rounded bg-slate-200 animate-pulse" />
+                    ) : balanceVisible ? (
+                      formatHTGV(balanceHTGV)
+                    ) : (
+                      hide(formatHTGV(balanceHTGV))
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Gourdes
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-cyan-50 to-white p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      USDC
+                    </span>
+                    <span className="h-5 w-5 rounded-full bg-cyan-500/10 text-cyan-600 grid place-items-center text-[10px] font-bold">
+                      $
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xl font-bold text-slate-900 tabular-nums h-7 flex items-center">
+                    {balancesLoading ? (
+                      <span className="inline-block h-5 w-20 rounded bg-slate-200 animate-pulse" />
+                    ) : balanceVisible ? (
+                      formatUSDC(balanceUSDC)
+                    ) : (
+                      hide(formatUSDC(balanceUSDC))
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    USD Coin
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleChange}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-lg border font-semibold text-sm transition-all active:scale-[0.99] ${
+                    activeForm === "change"
+                      ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-[#0DB7D0] hover:text-[#0DB7D0] hover:bg-cyan-50/40"
+                  }`}
+                >
+                  <ArrowLeftRight size={16} />
+                  <span>{bl.change}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTransfer}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm shadow-sm transition-all active:scale-[0.99] ${
+                    activeForm === "transfer"
+                      ? "bg-[#0A92A6] text-white"
+                      : "bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 text-white"
+                  }`}
+                >
+                  <Send size={16} />
+                  <span>{bl.transfer}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Change Form */}
+            {activeForm === "change" && (
+              <div className="mt-4 pt-4 border-t border-slate-200 space-y-2.5">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {fl.changeTitle}
+                  </h3>
+                  <span className="text-[10px] text-slate-400">
+                    1 USDC ≈ {displayRate.toFixed(2)} HTGV
+                  </span>
+                </div>
+
+                {externalAddress && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSent_to_addr((curr) => (curr ? null : externalAddress))
+                    }
+                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border text-[10px] font-semibold transition-all ${
+                      sent_to_addr
+                        ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-[#0DB7D0] hover:text-[#0DB7D0]"
+                    }`}
+                  >
+                    <span className="uppercase tracking-wider">
+                      Send to external
+                    </span>
+                    <span className="font-mono normal-case truncate max-w-[180px]">
+                      {sent_to_addr ? sent_to_addr : "off"}
+                    </span>
+                  </button>
+                )}
+                {/* From */}
+                <div>
+                  <div className="flex items-center border border-slate-300 bg-white rounded-md px-2.5 py-2 gap-2">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                      {fl.from}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={changeAmount}
+                      onChange={(e) => setChangeAmount(e.target.value)}
+                      placeholder="0"
+                      className="flex-1 text-base font-semibold text-slate-900 outline-none placeholder-slate-300 bg-transparent tabular-nums min-w-0"
+                    />
+                    <span className="text-[11px] font-bold text-slate-700 px-1.5 py-0.5 rounded bg-slate-100">
+                      {changeFrom}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-0.5 px-0.5">
+                    <span className="text-[10px] text-slate-400">
+                      {fl.available}: {formatAmt(changeBalance, changeFrom)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setChangeAmount(String(changeBalance))}
+                      className="text-[10px] font-semibold text-[#0DB7D0] hover:underline"
+                    >
+                      {fl.max}
+                    </button>
+                  </div>
+                </div>
+                {/* Swap */}
+                <div className="flex justify-center -my-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangeFrom((c) => (c === "HTGV" ? "USDC" : "HTGV"));
+                      setChangeAmount("");
+                    }}
+                    className="bg-white border border-slate-200 p-1 rounded-full shadow-sm hover:border-[#0DB7D0] hover:text-[#0DB7D0] transition-all"
+                  >
+                    <ArrowUpDown size={12} className="text-slate-500" />
+                  </button>
+                </div>
+                {/* To */}
+                <div className="flex items-center border border-slate-200 bg-slate-50 rounded-md px-2.5 py-2 gap-2">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                    {fl.to}
+                  </span>
+                  <input
+                    type="text"
+                    readOnly
+                    value={formatAmt(changeReceive, changeTo)}
+                    className="flex-1 text-base font-semibold text-slate-900 outline-none bg-transparent tabular-nums min-w-0"
+                  />
+                  <span className="text-[11px] font-bold text-slate-700 px-1.5 py-0.5 rounded bg-white border border-slate-200">
+                    {changeTo}
+                  </span>
+                </div>
+                {changeInsufficient && (
+                  <p className="text-[11px] text-red-500">{fl.insufficient}</p>
+                )}
+                {changeError && (
+                  <p className="text-[11px] text-red-500 break-words">
+                    {changeError}
+                  </p>
+                )}
+                {changeSuccess && (
+                  <p className="text-[11px] text-emerald-600 break-words">
+                    {changeSuccess}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={changeDisabled || changeSubmitting}
+                  onClick={handleConfirmChange}
+                  className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-md text-sm shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-1.5"
+                >
+                  {changeSubmitting && (
+                    <Loader2 size={14} className="animate-spin" />
+                  )}
+                  {fl.confirmChange}
+                </button>
+              </div>
+            )}
+
+            {/* Transfer Form */}
+            {activeForm === "transfer" && (
+              <div className="mt-4 pt-4 border-t border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {fl.transferTitle}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-0.5 p-0.5 bg-slate-100 rounded-md">
+                    {(["HTGV", "USDC"] as const).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setTransferCurrency(c)}
+                        className={`px-2.5 py-1 text-[10px] font-bold rounded transition-all ${
+                          transferCurrency === c
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recipient */}
+                <input
+                  type="text"
+                  value={transferRecipient}
+                  onChange={(e) => setTransferRecipient(e.target.value)}
+                  placeholder={fl.recipientPh}
+                  className="w-full px-2.5 py-2 border border-slate-300 bg-white rounded-md outline-none focus:ring-1 focus:ring-[#0DB7D0]/30 focus:border-[#0DB7D0] transition-all text-xs text-slate-900 placeholder-slate-400 font-mono"
+                />
+
+                {/* Amount */}
+                <div>
+                  <div className="flex items-center border border-slate-300 bg-white rounded-md px-2.5 py-2 gap-2">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                      {fl.amount}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={transferAmount}
+                      onChange={(e) => setTransferAmount(e.target.value)}
+                      placeholder="0"
+                      className="flex-1 text-base font-semibold text-slate-900 outline-none placeholder-slate-300 bg-transparent tabular-nums min-w-0"
+                    />
+                    <span className="text-[11px] font-bold text-slate-500">
+                      {transferCurrency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-0.5 px-0.5">
+                    <span className="text-[10px] text-slate-400">
+                      {fl.available}:{" "}
+                      {formatAmt(transferBalance, transferCurrency)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTransferAmount(String(transferBalance))}
+                      className="text-[10px] font-semibold text-[#0DB7D0] hover:underline"
+                    >
+                      {fl.max}
+                    </button>
+                  </div>
+                </div>
+
+                {transferInsufficient && (
+                  <p className="text-[11px] text-red-500">{fl.insufficient}</p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={transferDisabled}
+                  onClick={() => setStep(AppStep.WALLET)}
+                  className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-md text-sm shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-1.5"
+                >
+                  <Send size={13} />
+                  {fl.confirmTransfer}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center">
+            <img
+              src="https://app.vitvit.cash/assets/logo-v2-text.png"
+              alt="VitVit.Cash"
+              className="h-6 w-auto opacity-80"
+            />
+          </div>
+        </div>
+
+        {/* Footer Links Mobile */}
+        <div className="mt-8 flex gap-6 text-xs text-slate-400 lg:hidden">
+          <a href="#">{t.common.privacy}</a>
+          <a href="#">{t.common.terms}</a>
+          <a href="#">{t.common.help}</a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;

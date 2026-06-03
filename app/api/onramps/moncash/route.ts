@@ -4,25 +4,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // onramps
-
-    // Inject businessId if not present or override it to match the secure config
-    const payload = {
-      ...body,
-      businessId: process.env.MONCASH_BUSINESS_ID,
-    };
-
     const response = await fetch(
-      "https://genpay.solvexalabs.xyz/api/cashcash/create-payment",
+      `${process.env.GEN_PAY_URL}/api/cashcash/create-payment`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.MONCASH_API_KEY}`,
-          "Business-X-Id": process.env.MONCASH_BUSINESS_ID!,
+          "Business-X-Id": process.env.GEN_PAY_ID!,
+          Authorization: `Bearer ${process.env.GEN_PAY_KEY}`,
         },
-
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...body,
+          businessId: process.env.GEN_PAY_ID,
+        }),
       },
     );
 

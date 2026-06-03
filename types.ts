@@ -76,6 +76,14 @@ export interface Translations {
     processing: string;
     waiting: string;
     error: string;
+    errorAuth: string;
+    errorNetwork: string;
+    errorInvalid: string;
+    errorMissingInfo: string;
+    failedTitle: string;
+    failedMessage: string;
+    goHome: string;
+    viewBalance: string;
     amountToPay: string;
     selectPaymentMethod: string;
     instant: string;
