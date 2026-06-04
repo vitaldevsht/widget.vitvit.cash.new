@@ -547,12 +547,18 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
         )}
       </div>
 
-      <div className="mt-auto pt-4 border-t border-slate-100 flex justify-center">
-        <img
-          src="https://app.vitvit.cash/assets/logo-v2-text.png"
-          alt="VitVit.Cash"
-          className="h-6 w-auto opacity-80"
-        />
+      <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center">
+        <a
+          href="https://www.vitvit.cash/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            src="https://app.vitvit.cash/assets/logo-v2-text.png"
+            alt="VitVit.Cash"
+            className="h-6 w-auto opacity-80 hover:opacity-100 transition-opacity"
+          />
+        </a>
       </div>
     </div>
   );
