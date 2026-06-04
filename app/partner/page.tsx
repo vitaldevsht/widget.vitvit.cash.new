@@ -645,185 +645,187 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Change Form */}
             <div className="mt-4 pt-4 border-t border-slate-200 space-y-2.5">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {fl.changeTitle}
-                  </h3>
-                  <span className="text-[10px] text-slate-400">
-                    1 USDC ≈ {displayRate.toFixed(2)} HTGV
-                  </span>
-                </div>
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-bold text-slate-900">
+                  {fl.changeTitle}
+                </h3>
+                <span className="text-[10px] text-slate-400">
+                  1 USDC ≈ {displayRate.toFixed(2)} HTGV
+                </span>
+              </div>
 
-                {/* External address */}
-                {editingExternalAddress ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={externalAddressDraft}
-                      onChange={(e) => setExternalAddressDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveExternalAddress();
-                        if (e.key === "Escape")
-                          setEditingExternalAddress(false);
-                      }}
-                      placeholder={fl.addressPh}
-                      className="flex-1 min-w-0 px-2.5 py-1.5 border border-[#0DB7D0] bg-white rounded-md outline-none focus:ring-1 focus:ring-[#0DB7D0]/30 text-[11px] text-slate-900 placeholder-slate-400 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={saveExternalAddress}
-                      aria-label={fl.saveAddress}
-                      className="p-1.5 rounded-md bg-[#0DB7D0] text-white hover:bg-[#0DB7D0]/90 transition-all"
-                    >
-                      <Check size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingExternalAddress(false)}
-                      aria-label={fl.cancel}
-                      className="p-1.5 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 transition-all"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border text-[10px] font-semibold transition-all ${
-                      sent_to_addr
-                        ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
-                        : "border-slate-200 bg-white text-slate-500"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        externalAddress &&
-                        setSent_to_addr((curr) =>
-                          curr ? null : externalAddress,
-                        )
-                      }
-                      disabled={!externalAddress}
-                      className="flex-1 flex items-center justify-between gap-2 min-w-0 disabled:cursor-default"
-                    >
-                      <span className="uppercase tracking-wider">
-                        {fl.sendToExternal}
-                      </span>
-                      <span className="font-mono normal-case truncate max-w-[160px]">
-                        {sent_to_addr
-                          ? sent_to_addr
-                          : externalAddress
-                            ? externalAddress
-                            : fl.off}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={startEditExternalAddress}
-                      aria-label={fl.editAddress}
-                      className="p-1 rounded text-slate-400 hover:text-[#0DB7D0] transition-all"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                  </div>
-                )}
-                {/* From */}
-                <div>
-                  <div className="flex items-center border border-slate-300 bg-white rounded-md px-2.5 py-2 gap-2">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase">
-                      {fl.from}
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={changeAmount}
-                      onChange={(e) => setChangeAmount(e.target.value)}
-                      placeholder="0"
-                      className="flex-1 text-base font-semibold text-slate-900 outline-none placeholder-slate-300 bg-transparent tabular-nums min-w-0"
-                    />
-                    <span className="text-[11px] font-bold text-slate-700 px-1.5 py-0.5 rounded bg-slate-100">
-                      {changeFrom}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-0.5 px-0.5">
-                    <span className="text-[10px] text-slate-400">
-                      {fl.available}: {formatAmt(changeBalance, changeFrom)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setChangeAmount(String(changeBalance))}
-                      className="text-[10px] font-semibold text-[#0DB7D0] hover:underline"
-                    >
-                      {fl.max}
-                    </button>
-                  </div>
-                </div>
-                {/* Swap */}
-                <div className="flex justify-center -my-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setChangeFrom((c) => (c === "HTGV" ? "USDC" : "HTGV"));
-                      setChangeAmount("");
-                    }}
-                    className="bg-white border border-slate-200 p-1 rounded-full shadow-sm hover:border-[#0DB7D0] hover:text-[#0DB7D0] transition-all"
-                  >
-                    <ArrowUpDown size={12} className="text-slate-500" />
-                  </button>
-                </div>
-                {/* To */}
-                <div className="flex items-center border border-slate-200 bg-slate-50 rounded-md px-2.5 py-2 gap-2">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase">
-                    {fl.to}
-                  </span>
+              {/* External address */}
+              {editingExternalAddress ? (
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    readOnly
-                    value={formatAmt(changeReceive, changeTo)}
-                    className="flex-1 text-base font-semibold text-slate-900 outline-none bg-transparent tabular-nums min-w-0"
+                    autoFocus
+                    value={externalAddressDraft}
+                    onChange={(e) => setExternalAddressDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveExternalAddress();
+                      if (e.key === "Escape") setEditingExternalAddress(false);
+                    }}
+                    placeholder={fl.addressPh}
+                    className="flex-1 min-w-0 px-2.5 py-1.5 border border-[#0DB7D0] bg-white rounded-md outline-none focus:ring-1 focus:ring-[#0DB7D0]/30 text-[11px] text-slate-900 placeholder-slate-400 font-mono"
                   />
-                  <span className="text-[11px] font-bold text-slate-700 px-1.5 py-0.5 rounded bg-white border border-slate-200">
-                    {changeTo}
+                  <button
+                    type="button"
+                    onClick={saveExternalAddress}
+                    aria-label={fl.saveAddress}
+                    className="p-1.5 rounded-md bg-[#0DB7D0] text-white hover:bg-[#0DB7D0]/90 transition-all"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingExternalAddress(false)}
+                    aria-label={fl.cancel}
+                    className="p-1.5 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 transition-all"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border text-[10px] font-semibold transition-all ${
+                    sent_to_addr
+                      ? "border-[#0DB7D0] bg-cyan-50 text-[#0DB7D0]"
+                      : "border-slate-200 bg-white text-slate-500"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      externalAddress &&
+                      setSent_to_addr((curr) => (curr ? null : externalAddress))
+                    }
+                    disabled={!externalAddress}
+                    className="flex-1 flex items-center justify-between gap-2 min-w-0 disabled:cursor-default"
+                  >
+                    <span className="uppercase tracking-wider">
+                      {fl.sendToExternal}
+                    </span>
+                    <span className="font-mono normal-case truncate max-w-[160px]">
+                      {sent_to_addr
+                        ? sent_to_addr
+                        : externalAddress
+                          ? externalAddress
+                          : fl.off}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startEditExternalAddress}
+                    aria-label={fl.editAddress}
+                    className="p-1 rounded text-slate-400 hover:text-[#0DB7D0] transition-all"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                </div>
+              )}
+              {/* From */}
+              <div>
+                <div className="flex items-center border border-slate-300 bg-white rounded-md px-2.5 py-2 gap-2">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                    {fl.from}
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={changeAmount}
+                    onChange={(e) => setChangeAmount(e.target.value)}
+                    placeholder="0"
+                    className="flex-1 text-base font-semibold text-slate-900 outline-none placeholder-slate-300 bg-transparent tabular-nums min-w-0"
+                  />
+                  <span className="text-[11px] font-bold text-slate-700 px-1.5 py-0.5 rounded bg-slate-100">
+                    {changeFrom}
                   </span>
                 </div>
-                {changeInsufficient && (
-                  <p className="text-[11px] text-red-500">{fl.insufficient}</p>
-                )}
-                {changeError && (
-                  <p className="text-[11px] text-red-500 break-words">
-                    {changeError}
-                  </p>
-                )}
-                {changeSuccess && (
-                  <p className="text-[11px] text-emerald-600 break-words">
-                    {changeSuccess}
-                  </p>
-                )}
+                <div className="flex justify-between items-center mt-0.5 px-0.5">
+                  <span className="text-[10px] text-slate-400">
+                    {fl.available}: {formatAmt(changeBalance, changeFrom)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setChangeAmount(String(changeBalance))}
+                    className="text-[10px] font-semibold text-[#0DB7D0] hover:underline"
+                  >
+                    {fl.max}
+                  </button>
+                </div>
+              </div>
+              {/* Swap */}
+              <div className="flex justify-center -my-1">
                 <button
                   type="button"
-                  disabled={changeDisabled || changeSubmitting}
-                  onClick={handleConfirmChange}
-                  className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-md text-sm shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    setChangeFrom((c) => (c === "HTGV" ? "USDC" : "HTGV"));
+                    setChangeAmount("");
+                  }}
+                  className="bg-white border border-slate-200 p-1 rounded-full shadow-sm hover:border-[#0DB7D0] hover:text-[#0DB7D0] transition-all"
                 >
-                  {changeSubmitting && (
-                    <Loader2 size={14} className="animate-spin" />
-                  )}
-                  {fl.confirmChange}
+                  <ArrowUpDown size={12} className="text-slate-500" />
                 </button>
               </div>
+              {/* To */}
+              <div className="flex items-center border border-slate-200 bg-slate-50 rounded-md px-2.5 py-2 gap-2">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                  {fl.to}
+                </span>
+                <input
+                  type="text"
+                  readOnly
+                  value={formatAmt(changeReceive, changeTo)}
+                  className="flex-1 text-base font-semibold text-slate-900 outline-none bg-transparent tabular-nums min-w-0"
+                />
+                <span className="text-[11px] font-bold text-slate-700 px-1.5 py-0.5 rounded bg-white border border-slate-200">
+                  {changeTo}
+                </span>
+              </div>
+              {changeInsufficient && (
+                <p className="text-[11px] text-red-500">{fl.insufficient}</p>
+              )}
+              {changeError && (
+                <p className="text-[11px] text-red-500 break-words">
+                  {changeError}
+                </p>
+              )}
+              {changeSuccess && (
+                <p className="text-[11px] text-emerald-600 break-words">
+                  {changeSuccess}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={changeDisabled || changeSubmitting}
+                onClick={handleConfirmChange}
+                className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-md text-sm shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-1.5"
+              >
+                {changeSubmitting && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                {fl.confirmChange}
+              </button>
+            </div>
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center">
-            <img
-              src="https://app.vitvit.cash/assets/logo-v2-text.png"
-              alt="VitVit.Cash"
-              className="h-6 w-auto opacity-80"
-            />
+            <a
+              href="https://www.vitvit.cash/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="https://app.vitvit.cash/assets/logo-v2-text.png"
+                alt="VitVit.Cash"
+                className="h-6 w-auto opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </a>
           </div>
         </div>
 
