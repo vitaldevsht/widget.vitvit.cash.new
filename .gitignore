@@ -11,6 +11,7 @@ lerna-debug.log*
 .next/
 dist
 dist-ssr
+*.tsbuildinfo
 *.local
 .env*
 # Editor directories and files
