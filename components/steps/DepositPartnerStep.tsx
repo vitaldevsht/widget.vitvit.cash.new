@@ -285,11 +285,42 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   }, [polling, orderId, setStep, router]);
 
   useEffect(() => {
-    if (orderId && !polling) {
-      setPaymentStatus("processing");
-      setForexStatus("idle");
-      setPolling(true);
-    }
+    if (!orderId || polling) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/cashcash/check-payment?orderId=${orderId}`,
+        );
+        if (!res.ok) {
+          if (!cancelled) setOrderId(null);
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        const status = data?.data?.status;
+        const terminal = [
+          "completed",
+          "failed",
+          "cancelled",
+          "canceled",
+          "expired",
+          "rejected",
+        ];
+        if (terminal.includes(status)) {
+          setOrderId(null);
+          return;
+        }
+        setPaymentStatus("processing");
+        setForexStatus("idle");
+        setPolling(true);
+      } catch {
+        if (!cancelled) setOrderId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
