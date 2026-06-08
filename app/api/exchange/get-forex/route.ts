@@ -1,24 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const { orderId } = await request.json();
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASEURL}/moncash/init`,
+      `${process.env.NEXT_PUBLIC_BASEURL}/exchanges/key-value`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.PARTNER_SECRET}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          key: "notes",
+          value: orderId,
+        }),
       },
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Upstream API Error:", response.status, errorText);
       return NextResponse.json(
         { error: `Upstream error: ${response.status}`, details: errorText },
         { status: response.status },
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("Server Proxy Error:", error);
+    console.error("Exchange Forex API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error", details: error.message },
       { status: 500 },

@@ -14,75 +14,143 @@ export interface VaultResponse {
   rates: VaultRate[];
 }
 
+export interface ErrorResponse {
+  error: string;
+  code: string;
+  details?: string;
+  required?: string[];
+}
+
+function httpError(
+  status: number,
+  code: string,
+  message: string,
+  extra?: Partial<ErrorResponse>,
+) {
+  return NextResponse.json<ErrorResponse>(
+    { error: message, code, ...extra },
+    { status },
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get("content-type") ?? "";
     let body: Record<string, any> = {};
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
+
+    if (
+      request.headers.get("content-length") &&
+      request.headers.get("content-length") !== "0"
+    ) {
+      if (!contentType.includes("application/json")) {
+        return httpError(
+          415,
+          "UNSUPPORTED_MEDIA_TYPE",
+          "Content-Type must be application/json",
+        );
+      }
+      try {
+        body = await request.json();
+      } catch (e: any) {
+        return httpError(400, "INVALID_JSON", "Malformed JSON body", {
+          details: e?.message,
+        });
+      }
     }
 
-    const accessToken =
-      request.headers.get("access_token") ?? body.access_token;
-    const externalAddress =
-      request.headers.get("external_address") ?? body.external_address;
+    const vitvit_user_id =
+      request.headers.get("vitvit_user_id") ?? body.vitvit_user_id;
+    const deposit_address =
+      request.headers.get("deposit_address") ?? body.deposit_address;
     const initOp = request.headers.get("init_op") ?? body.init_op;
     const amount = request.headers.get("amount") ?? body.amount;
+    const partner_id = request.headers.get("partner_id") ?? body.partner_id;
+    const partner_fee = request.headers.get("partner_fee") ?? body.partner_fee;
+    const partner_address =
+      request.headers.get("partner_address") ?? body.partner_address;
 
-    if (!accessToken || !externalAddress || !initOp || !amount) {
-      return NextResponse.json(
+    const missing: string[] = [];
+    if (!partner_id) missing.push("partner_id");
+    if (!vitvit_user_id) missing.push("vitvit_user_id");
+    // if (!deposit_address) missing.push("deposit_address");
+    if (!initOp) missing.push("init_op");
+    if (!amount) missing.push("amount");
+
+    if (missing.length > 0) {
+      return httpError(
+        400,
+        "MISSING_PARAMETERS",
+        "Missing required parameters",
         {
-          error: "Missing required parameters",
-          required: ["access_token", "external_address", "init_op", "amount"],
+          required: missing,
         },
-        { status: 400 },
       );
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "Invalid or expired access_token" },
-        { status: 401 },
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return httpError(
+        422,
+        "INVALID_AMOUNT",
+        "amount must be a positive number",
       );
+    }
+
+    if (partner_fee !== undefined && partner_fee !== null) {
+      const feeNum = Number(partner_fee);
+      if (!Number.isFinite(feeNum) || feeNum < 0) {
+        return httpError(
+          422,
+          "INVALID_PARTNER_FEE",
+          "partner_fee must be a non-negative number",
+        );
+      }
     }
 
     const { data: userRow, error: userRowError } = await supabase
       .from("users")
       .select("*")
-      .eq("id", user.id)
+      .eq("id", vitvit_user_id)
       .single();
 
-    console.log(userRow);
+    if (userRowError) {
+      if (userRowError.code === "PGRST116") {
+        return httpError(404, "USER_NOT_FOUND", "User not found", {
+          details: userRowError.message,
+        });
+      }
+      return httpError(502, "DB_ERROR", "Database query failed", {
+        details: userRowError.message,
+      });
+    }
 
-    if (userRowError || !userRow) {
-      return NextResponse.json(
-        {
-          error: "User not found in users table",
-          details: userRowError?.message,
-        },
-        { status: 404 },
-      );
+    if (!userRow) {
+      return httpError(404, "USER_NOT_FOUND", "User not found");
     }
 
     const baseUrl = request.nextUrl.origin;
+    const params = new URLSearchParams({
+      clientId: String(userRow.id),
+      phone: String(userRow.phone ?? ""),
+      partner_id: String(partner_id ?? ""),
+      external_address: String(deposit_address),
+      amount: String(amountNum),
+      partner_fee: String(partner_fee ?? ""),
+      partner_address: String(partner_address ?? ""),
+    });
 
-    const response = {
+    return NextResponse.json({
       ok: 1,
-      url_deposit: `${baseUrl}/partner/deposit?clientId=${userRow?.id}&phone=${userRow?.phone}&partner_id=${userRow?.partner_id}&first_name=${userRow?.first_name}&external_address=${externalAddress}&amount=${amount || 100}&access_token=${accessToken}`,
-    };
-
-    return NextResponse.json(response);
+      ["url_" + initOp]: `${baseUrl}/partner/${initOp}?${params.toString()}`,
+    });
   } catch (error: any) {
-    console.error("Quote API Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error", details: error.message },
-      { status: 500 },
-    );
+    console.error("log-user API Error:", error);
+    return httpError(500, "INTERNAL_ERROR", "Internal Server Error", {
+      details: error?.message,
+    });
   }
+}
+
+export async function GET() {
+  return httpError(405, "METHOD_NOT_ALLOWED", "Method Not Allowed");
 }

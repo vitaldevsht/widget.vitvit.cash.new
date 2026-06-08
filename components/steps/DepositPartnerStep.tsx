@@ -24,6 +24,8 @@ interface PartnerProfile {
   partner_id?: string;
   access_token?: string;
   external_address?: string;
+  partner_address?: string;
+  partner_fee?: number;
 }
 
 interface DepositStepProps {
@@ -32,48 +34,57 @@ interface DepositStepProps {
   profile?: PartnerProfile;
 }
 
-const extractErrorMessage = (errData: any): string => {
-  if (!errData || typeof errData !== "object") return "";
-  const candidates = [errData.details, errData.message, errData.error];
-  for (const c of candidates) {
-    if (typeof c === "string" && c.trim()) return c.trim().replace(/:\s*$/, "");
-  }
-  return "";
-};
+type StageStatus = "idle" | "processing" | "complete" | "failed";
 
-const friendlyPaymentError = (
-  raw: string | undefined,
-  t: Translations["deposit"],
-) => {
-  const msg = (raw || "").toLowerCase();
-
-  if (
-    msg.includes("authentication") ||
-    msg.includes("unauthorized") ||
-    msg.includes("token") ||
-    msg.includes("auth")
-  ) {
-    return t.errorAuth;
-  }
-  if (
-    msg.includes("network") ||
-    msg.includes("fetch") ||
-    msg.includes("timeout")
-  ) {
-    return t.errorNetwork;
-  }
-  if (msg.includes("amount") || msg.includes("invalid")) {
-    return t.errorInvalid;
-  }
-  if (
-    msg.includes("partner") ||
-    msg.includes("customer") ||
-    msg.includes("missing")
-  ) {
-    return t.errorMissingInfo;
-  }
-
-  return t.error;
+const StageRow = ({
+  t,
+  label,
+  status,
+}: {
+  t: Translations;
+  label: string;
+  status: StageStatus;
+}) => {
+  const icon =
+    status === "complete" ? (
+      <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+    ) : status === "failed" ? (
+      <XCircle size={16} className="text-red-500 shrink-0" />
+    ) : status === "processing" ? (
+      <Loader2 size={16} className="text-emerald-500 shrink-0 animate-spin" />
+    ) : (
+      <div className="w-4 h-4 rounded-full border border-slate-300 shrink-0" />
+    );
+  const statusText =
+    status === "complete"
+      ? t.partnerDeposit.stageComplete
+      : status === "failed"
+        ? t.partnerDeposit.stageFailed
+        : status === "processing"
+          ? t.partnerDeposit.stageProcessing
+          : t.partnerDeposit.stagePending;
+  const statusColor =
+    status === "complete"
+      ? "text-emerald-600"
+      : status === "failed"
+        ? "text-red-500"
+        : status === "processing"
+          ? "text-emerald-600"
+          : "text-slate-400";
+  const labelColor = status === "idle" ? "text-slate-400" : "text-slate-700";
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-slate-50 border border-slate-100">
+      <div className="flex items-center gap-2 min-w-0">
+        {icon}
+        <span className={`text-xs font-medium truncate ${labelColor}`}>
+          {label}
+        </span>
+      </div>
+      <span className={`text-[11px] font-semibold ${statusColor}`}>
+        {statusText}
+      </span>
+    </div>
+  );
 };
 
 const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
@@ -92,13 +103,23 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   const [paymentUrl, setPaymentUrl] = useState("");
   const [failed, setFailed] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<StageStatus>("idle");
+  const [forexStatus, setForexStatus] = useState<StageStatus>("idle");
   const [amountInput, setAmountInput] = useState<string>(
     amount > 0 ? String(amount) : "",
   );
   const [sendToExternal, setSendToExternal] = useState<boolean>(
     Boolean(profile?.external_address),
   );
+  // Platform "BUY USDC" rate (HTGV -> USDC): how many HTGV per 1 USDC when buying.
+  // Falls back to the static constant until the API responds.
+  const [htgToUsdcRate, setHtgToUsdcRate] =
+    useState<number>(HTG_TO_USDC_RATE);
   const forexTriggeredRef = useRef(false);
+  const pollStartRef = useRef<number | null>(null);
+  const MAX_POLL_MS = 90_000;
+  const POLL_INTERVAL_MS = 15_000;
+  const MIN_DEPOSIT_HTG = 10;
 
   const goHome = () => {
     router.push(
@@ -115,7 +136,7 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   } else {
     amountToPayHTG =
       ((currentAmount + NETWORK_FEE_USD) / (1 - SERVICE_FEE_PERCENT)) *
-      HTG_TO_USDC_RATE;
+      htgToUsdcRate;
   }
   const totalAmount = Math.ceil(amountToPayHTG);
 
@@ -123,55 +144,15 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   const access_token = profile?.access_token;
   const external_address = profile?.external_address;
 
+  const partner_address = profile?.partner_address;
+  const partner_fee = profile?.partner_fee;
+  const partner_id = profile?.partner_id;
+
   const customerNumber = profile?.phone
     ? profile.phone.startsWith("509")
       ? profile.phone
       : "509" + profile.phone
     : "509" + storePhone;
-
-  const createDeposit = async (refNumber: string, transactionId: string) => {
-    if (!profile?.partner_id) {
-      throw new Error("Missing partner_id on profile");
-    }
-    if (!clientId) {
-      throw new Error("Missing customer_id (clientId)");
-    }
-
-    const res = await fetch("/api/onramps/create-deposit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        partner_id: profile.partner_id,
-        customer_id: clientId,
-        approved_by: null,
-        currency: inputCurrency,
-        method: "mobile_money",
-        provider: "MonCash",
-        amount: totalAmount,
-        transaction_id: transactionId,
-        ref_number: refNumber,
-        images: [],
-        notes: null,
-        approved_date: null,
-        approved_key: null,
-        hash: null,
-      }),
-    });
-
-    if (!res.ok) {
-      let errData: any = {};
-      try {
-        errData = await res.json();
-      } catch {
-        errData = {};
-      }
-      throw new Error(
-        extractErrorMessage(errData) || "Failed to create deposit record",
-      );
-    }
-
-    return res.json();
-  };
 
   const deleteDeposit = async (depositId: string) => {
     try {
@@ -188,64 +169,34 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
     let depositId: string | undefined;
 
     try {
-      const refNumber = `${Date.now()}_${Math.floor(
-        Math.random() * 1_000_000_000_000,
-      )}`;
-      const transactionId = `TXN-${Date.now()}`;
-      const orderId = `${process.env.NEXT_PUBLIC_MONCASH_TEST_LIVE}${new Date().getTime()}`;
-
       const res = await fetch("/api/onramps/moncash", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          mode: process.env.NEXT_PUBLIC_MONCASHIS,
-          live_test: process.env.NEXT_PUBLIC_MONCASH_TEST_LIVE || "",
+          partnerId: partner_id,
           clientId: clientId,
-          orderId,
-          customerNumber,
-          amount: totalAmount,
-          webhooks: [`${process.env.NEXT_PUBLIC_BASEURL}/webhooks/moncash`],
+          customerNumber: customerNumber,
+          isExchange: true,
+          amount: amountInput,
+          webhooks: [
+            `${process.env.NEXT_PUBLIC_BASEURL}/webhooks/moncash/exchange`,
+          ],
           metadata: {
-            email: profile?.email,
-            first_name: profile?.first_name,
-            last_name: profile?.last_name,
-            partner_id: profile?.partner_id,
-            customer_id: clientId,
-            transaction_id: transactionId,
-            ref_number: refNumber,
-            amount: currentAmount,
-            totalAmount,
+            sent_to: sendToExternal ? external_address : null,
+            partner_fee,
+            partner_address,
           },
         }),
       });
-
-      if (!res.ok) {
-        let errData: any = {};
-        try {
-          errData = await res.json();
-        } catch {
-          errData = {};
-        }
-        if (depositId) {
-          await deleteDeposit(depositId);
-          depositId = undefined;
-        }
-        throw new Error(extractErrorMessage(errData) || "Payment API failed");
-      }
-
       const responseData = await res.json();
 
-      if (responseData.success && responseData.data) {
-        const newOrderId =
-          responseData.data.order_id || responseData.data.orderId;
+      if (responseData.orderId) {
+        const newOrderId = responseData.orderId;
         setOrderId(newOrderId);
 
-        const depositResponse = await createDeposit(newOrderId, transactionId);
-        depositId = depositResponse?.data?.id;
-
-        const url = responseData.data.url || responseData.data.payment_uri;
+        const url = responseData.url;
         if (url) {
           setPaymentUrl(url);
           window.open(
@@ -254,103 +205,139 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
             "width=300,height=450,resizable=yes,scrollbars=yes,status=yes",
           );
         }
+        setPaymentStatus("processing");
+        setForexStatus("idle");
         setPolling(true);
         depositId = undefined;
       } else {
-        if (depositId) {
-          await deleteDeposit(depositId);
-          depositId = undefined;
-        }
-        throw new Error("Failed to create payment: Invalid response");
+        setPolling(false);
+        setOrderId(null);
+        setFailed(true);
+        setSucceeded(false);
       }
     } catch (e: any) {
-      console.error("Deposit API failed", e);
-      if (depositId) {
-        await deleteDeposit(depositId);
-      }
-      setError(friendlyPaymentError(e?.message, t.deposit));
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
-    let interval: number;
-    if (polling && orderId) {
-      interval = window.setInterval(async () => {
-        try {
-          const res = await fetch(
-            `/api/cashcash/check-payment?orderId=${orderId}`,
-          );
-          if (!res.ok) return;
+    if (!polling || !orderId) return;
+    if (pollStartRef.current === null) pollStartRef.current = Date.now();
 
-          const responseData = await res.json();
-          const status = responseData?.data?.status;
-          if (responseData.success && status === "completed") {
-            if (forexTriggeredRef.current) return;
-            forexTriggeredRef.current = true;
-            setTimeout(async () => {
-              const res = await fetch("/api/exchange/forex", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  // ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                },
-                body: JSON.stringify({
-                  user_id: clientId,
-                  token_1: "HTGV",
-                  token_2: "USDC",
-                  amount: amount,
-                  sent_to: sendToExternal ? external_address : null,
-                }),
-              });
-              const data = await res.json().catch(() => ({}));
-              if (!res.ok) {
-                throw new Error(
-                  data?.details ||
-                    data?.error ||
-                    `Request failed (${res.status})`,
-                );
-              } else {
-                setPolling(false);
-                setSucceeded(true);
-              }
-            }, 5000);
-          } else if (
-            status === "failed" ||
-            status === "cancelled" ||
-            status === "canceled" ||
-            status === "expired" ||
-            status === "rejected"
-          ) {
+    const interval = window.setInterval(async () => {
+      try {
+        const elapsed = Date.now() - (pollStartRef.current ?? Date.now());
+        if (elapsed >= MAX_POLL_MS) {
+          setForexStatus("failed");
+          setPolling(false);
+          setOrderId(null);
+          setFailed(true);
+          pollStartRef.current = null;
+          return;
+        }
+
+        const res = await fetch(
+          `/api/cashcash/check-payment?orderId=${orderId}`,
+        );
+
+        if (!res.ok) return;
+        const responseData = await res.json();
+        const status = responseData?.data?.status;
+        if (responseData.success && status === "completed") {
+          setPaymentStatus("complete");
+          setForexStatus("processing");
+          const forexRes = await fetch("/api/exchange/get-forex", {
+            method: "POST",
+            body: JSON.stringify({
+              orderId: orderId,
+            }),
+          });
+
+          const forexData = await forexRes.json();
+          const hash = forexData?.hash;
+          if (hash) {
+            setForexStatus("complete");
             setPolling(false);
             setOrderId(null);
-            setFailed(true);
+            setFailed(false);
+            setSucceeded(true);
+            pollStartRef.current = null;
           }
-        } catch (e) {
-          console.error("Polling error", e);
+        } else if (
+          status === "failed" ||
+          status === "cancelled" ||
+          status === "canceled" ||
+          status === "expired" ||
+          status === "rejected"
+        ) {
+          setPaymentStatus("failed");
+          setPolling(false);
+          setOrderId(null);
+          setFailed(true);
+          pollStartRef.current = null;
         }
-      }, 3000);
-    }
+      } catch (e) {
+        console.error("Polling error", e);
+      }
+    }, POLL_INTERVAL_MS);
+
     return () => clearInterval(interval);
   }, [polling, orderId, setStep, router]);
 
   useEffect(() => {
     if (orderId && !polling) {
+      setPaymentStatus("processing");
+      setForexStatus("idle");
       setPolling(true);
     }
   }, []);
 
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/partner/user-balances?user_id=${encodeURIComponent(clientId)}`,
+          {
+            cache: "no-store",
+            headers: access_token
+              ? { Authorization: `Bearer ${access_token}` }
+              : undefined,
+          },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        // Platform buy-USDC rate (1 USDC = N HTGV). Used to size the HTGV->USDC
+        // exchange shown in the quote and the final HTG charge.
+        const buyUsdc = data?.rates?.find(
+          (r: { label?: string; HTGV_USDC?: number }) => r?.label === "BUY USDC",
+        );
+        const buyRate =
+          typeof buyUsdc?.HTGV_USDC === "number" && buyUsdc.HTGV_USDC > 0
+            ? buyUsdc.HTGV_USDC
+            : null;
+        if (buyRate) setHtgToUsdcRate(buyRate);
+      } catch (e) {
+        console.error("Failed to load rate", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, access_token]);
+
   return (
-    <div className="text-center py-6 space-y-6 min-h-[70vh] flex flex-col">
-      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-        <CreditCard size={28} className="text-emerald-600" />
+    <div className="text-center  space-y-6 min-h-[70vh] flex flex-col">
+      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+        <CreditCard size={20} className="text-emerald-600" />
       </div>
 
       <div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">
+        {/* <h2 className="text-2xl font-bold text-slate-900 mb-2">
           {t.deposit.title}
-        </h2>
+        </h2> */}
         <p className="text-slate-500 text-sm max-w-xs mx-auto">
           {t.deposit.subtitle}
         </p>
@@ -359,7 +346,7 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
       {external_address && !succeeded && (
         <button
           type="button"
-          onClick={() => setSendToExternal((v) => !v)}
+          // onClick={() => setSendToExternal((v) => !v)}
           disabled={!amountEditable}
           className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-[11px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
             sendToExternal
@@ -368,9 +355,11 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
           }`}
           aria-pressed={sendToExternal}
         >
-          <span className="uppercase tracking-wider">Send to external</span>
+          <span className="uppercase tracking-wider">
+            {t.partnerDeposit.sendToExternal}
+          </span>
           <span className="font-mono normal-case truncate max-w-[180px]">
-            {sendToExternal ? external_address : "off"}
+            {sendToExternal ? external_address : t.partnerDeposit.off}
           </span>
         </button>
       )}
@@ -399,6 +388,64 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
               ≈ {totalAmount.toLocaleString("en-US")} HTG
             </p>
           )}
+          <p
+            className={`mt-2 text-xs ${
+              currentAmount > 0 && totalAmount < MIN_DEPOSIT_HTG
+                ? "text-red-500"
+                : "text-slate-400"
+            }`}
+          >
+            {t.partnerDeposit.minDeposit.replace(
+              "{amount}",
+              MIN_DEPOSIT_HTG.toLocaleString("en-US"),
+            )}
+          </p>
+        </div>
+      )}
+
+      {!succeeded && !failed && !polling && currentAmount > 0 && (
+        <div className="bg-slate-50 rounded-lg p-4 text-left space-y-2 text-xs border border-slate-100">
+          <div className="flex justify-between">
+            <span className="text-slate-500">
+              {t.partnerDeposit.exchangeRate}
+            </span>
+            <span className="font-semibold text-slate-900 tabular-nums">
+              1 USDC = {htgToUsdcRate} HTG
+            </span>
+          </div>
+          {partner_fee > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-500">
+                {t.partnerDeposit.partnerFee}
+              </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {(partner_fee * 100).toFixed(1)}%
+              </span>
+            </div>
+          )}
+          {NETWORK_FEE_USD > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-500">
+                {t.partnerDeposit.networkFee}
+              </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {NETWORK_FEE_USD} USDC
+              </span>
+            </div>
+          )}
+          <div className="border-t border-slate-200 pt-2 flex justify-between">
+            <span className="text-slate-500">
+              {t.partnerDeposit.youWillReceive}
+            </span>
+            <span className="font-bold text-emerald-600 tabular-nums">
+              {(inputCurrency === "HTGV"
+                ? currentAmount / htgToUsdcRate -
+                  (currentAmount / htgToUsdcRate) * partner_fee
+                : currentAmount
+              ).toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
+              USDC
+            </span>
+          </div>
         </div>
       )}
 
@@ -419,46 +466,60 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
 
             <div className="bg-slate-50 rounded-lg p-4 mb-5 text-left space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500">Deposited</span>
+                <span className="text-slate-500">
+                  {t.partnerDeposit.deposited}
+                </span>
                 <span className="font-semibold text-slate-900 tabular-nums">
                   {totalAmount.toLocaleString("en-US")} HTG
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Exchange rate</span>
+                <span className="text-slate-500">
+                  {t.partnerDeposit.exchangeRate}
+                </span>
                 <span className="font-semibold text-slate-900 tabular-nums">
-                  1 USDC = {HTG_TO_USDC_RATE} HTG
+                  1 USDC = {htgToUsdcRate} HTG
                 </span>
               </div>
-              {SERVICE_FEE_PERCENT > 0 && (
+              {partner_fee > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Service fee</span>
+                  <span className="text-slate-500">
+                    {t.partnerDeposit.partnerFee}
+                  </span>
                   <span className="font-semibold text-slate-900 tabular-nums">
-                    {(SERVICE_FEE_PERCENT * 100).toFixed(1)}%
+                    {(partner_fee * 100).toFixed(1)}%
                   </span>
                 </div>
               )}
               {NETWORK_FEE_USD > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Network fee</span>
+                  <span className="text-slate-500">
+                    {t.partnerDeposit.networkFee}
+                  </span>
                   <span className="font-semibold text-slate-900 tabular-nums">
                     {NETWORK_FEE_USD} USDC
                   </span>
                 </div>
               )}
               <div className="border-t border-slate-200 pt-2 flex justify-between">
-                <span className="text-slate-500">You received</span>
+                <span className="text-slate-500">
+                  {t.partnerDeposit.youReceived}
+                </span>
                 <span className="font-bold text-emerald-600 tabular-nums">
                   {(inputCurrency === "HTGV"
-                    ? currentAmount / HTG_TO_USDC_RATE
+                    ? currentAmount / htgToUsdcRate -
+                      (currentAmount / htgToUsdcRate) * partner_fee
                     : currentAmount
                   ).toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
                   USDC
                 </span>
               </div>
+
               {sendToExternal && external_address && (
                 <div className="border-t border-slate-200 pt-2">
-                  <p className="text-slate-500 mb-1">Sent to</p>
+                  <p className="text-slate-500 mb-1">
+                    {t.partnerDeposit.sentTo}
+                  </p>
                   <p className="font-mono text-[10px] text-slate-700 break-all">
                     {external_address}
                   </p>
@@ -482,43 +543,72 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
             <p className="text-xs text-slate-500 mb-5">
               {t.deposit.failedMessage}
             </p>
-            <button
+
+            <div className="mb-5 space-y-2 text-left">
+              <StageRow
+                t={t}
+                label={t.partnerDeposit.paymentConfirmation}
+                status={paymentStatus}
+              />
+              <StageRow
+                t={t}
+                label={t.partnerDeposit.currencyExchange}
+                status={forexStatus}
+              />
+            </div>
+
+            {/* <button
               onClick={goHome}
               className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/80 text-white font-semibold py-3 rounded-lg shadow-sm transition-all active:scale-[0.99]"
             >
               {t.deposit.viewBalance}
-            </button>
+            </button> */}
           </div>
         ) : !polling ? (
           <>
             <button
               onClick={createPayment}
-              disabled={loading || currentAmount <= 0}
+              disabled={
+                loading || currentAmount <= 0 || totalAmount < MIN_DEPOSIT_HTG
+              }
               className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/80 disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={18} className="animate-spin" />}
               {loading ? t.deposit.processing : t.deposit.buttonPay}
             </button>
-            <button
+            {/* <button
               onClick={goHome}
               disabled={loading}
               className="w-full text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50 py-2"
             >
               {t.deposit.viewBalance}
-            </button>
+            </button> */}
           </>
         ) : (
           <div className="bg-white rounded-lg p-6 border border-slate-100 shadow-sm">
-            <Loader2
+            {/* <Loader2
               size={32}
               className="animate-spin text-emerald-500 mx-auto mb-4"
-            />
-            <p className="text-sm font-medium text-slate-800 mb-1">
+            /> */}
+            {/* <p className="text-sm font-medium text-slate-800 mb-1">
               {t.deposit.processing}
             </p>
-            <p className="text-xs text-slate-500">{t.deposit.waiting}</p>
+            <p className="text-xs text-slate-500">{t.deposit.waiting}</p> */}
 
-            {paymentUrl && (
+            <div className="mt-5 space-y-2 text-left">
+              <StageRow
+                t={t}
+                label={t.partnerDeposit.paymentConfirmation}
+                status={paymentStatus}
+              />
+              <StageRow
+                t={t}
+                label={t.partnerDeposit.currencyExchange}
+                status={forexStatus}
+              />
+            </div>
+
+            {paymentUrl && paymentStatus !== "complete" && (
               <button
                 onClick={() =>
                   window.open(
@@ -529,20 +619,23 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
                 }
                 className="mt-4 inline-flex items-center gap-1 text-emerald-600 text-sm font-medium hover:underline"
               >
-                Pay Now <ExternalLink size={14} />
+                {t.partnerDeposit.payNow} <ExternalLink size={14} />
               </button>
             )}
-
-            <button
-              onClick={() => {
-                setOrderId(null);
-                setPolling(false);
-                setError("");
-              }}
-              className="mt-6 text-xs text-slate-300 hover:text-slate-500 block mx-auto"
-            >
-              Cancel
-            </button>
+            {paymentUrl && paymentStatus !== "complete" && (
+              <button
+                onClick={() => {
+                  setOrderId(null);
+                  setPolling(false);
+                  setError("");
+                  setPaymentStatus("idle");
+                  setForexStatus("idle");
+                }}
+                className="mt-6 text-xs text-slate-300 hover:text-slate-500 block mx-auto"
+              >
+                {t.partnerDeposit.cancel}
+              </button>
+            )}
           </div>
         )}
       </div>

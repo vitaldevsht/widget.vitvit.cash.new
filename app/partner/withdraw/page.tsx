@@ -1,6 +1,6 @@
 "use client";
 
-import DepositStep from "@/components/steps/DepositPartnerStep";
+import WithdrawPartnerStep from "@/components/steps/WithdrawPartnerStep";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { LogOut } from "lucide-react";
@@ -9,7 +9,7 @@ import { Language } from "@/types";
 import { useAppStore } from "@/store";
 import { AuthPhoneStep } from "@/components/steps";
 
-const DepositContent = () => {
+const WithdrawContent = () => {
   const router = useRouter();
   const { lang, setLang, authData, setPhone, setAreaCode, logout } =
     useAppStore();
@@ -115,7 +115,7 @@ const DepositContent = () => {
             </div>
           )}
           {accessToken ? (
-            <DepositStep t={t} amount={validAmount} profile={profile} />
+            <WithdrawPartnerStep t={t} amount={validAmount} profile={profile} />
           ) : (
             <AuthPhoneStep t={t} />
           )}
@@ -134,7 +134,7 @@ const DepositContent = () => {
 
 const App = () => (
   <Suspense>
-    <DepositContent />
+    <WithdrawContent />
   </Suspense>
 );
 

@@ -45,7 +45,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true);
-    setLang("ht");
   }, []);
 
   if (!isMounted) {

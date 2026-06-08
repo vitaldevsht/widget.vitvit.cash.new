@@ -61,18 +61,11 @@ interface AppState {
   toggleCurrency: () => void;
 }
 
-const generateUserId = () => {
-  // Simple ID generation for demo purposes
-  return (
-    "user_" + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
-  );
-};
-
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      userId: generateUserId(),
-      lang: "ht",
+      userId: "",
+      lang: "fr",
       step: AppStep.QUOTE,
       inputCurrency: "HTGV",
       amount: 1000,
@@ -121,8 +114,8 @@ export const useAppStore = create<AppState>()(
         }),
       logout: () =>
         set((state) => ({
-          userId: generateUserId(),
-          lang: "en",
+          userId: "",
+          lang: "fr",
           step: state.pin ? AppStep.ENTER_PIN : AppStep.QUOTE,
           inputCurrency: "HTGV",
           amount: 1000,
@@ -138,6 +131,14 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "vitvit-storage", // unique name
+      version: 1,
+      migrate: (persisted: any, version) => {
+        if (version < 1 && persisted) {
+          // Drop legacy client-generated fake userId so the real one (URL/session) wins.
+          return { ...persisted, userId: "" };
+        }
+        return persisted;
+      },
       partialize: (state) => ({
         // Persist these fields
         userId: state.userId,
