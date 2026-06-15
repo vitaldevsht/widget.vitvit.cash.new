@@ -50,6 +50,9 @@ const WithdrawContent = () => {
     external_address: searchParams.get("external_address") || "",
     partner_address: searchParams.get("partner_address") || "",
     partner_fee: parseFloat(searchParams.get("partner_fee")) || 0,
+    withdraw_fee: parseFloat(searchParams.get("withdraw_fee")) || 0,
+    account_number: searchParams.get("account_number") || "",
+    account_name: searchParams.get("account_name") || "",
   };
 
   return (

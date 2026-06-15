@@ -15,6 +15,9 @@ interface PartnerProfile {
   external_address?: string;
   partner_address?: string;
   partner_fee?: number;
+  withdraw_fee?: number;
+  account_number?: string;
+  account_name?: string;
 }
 
 interface WithdrawStepProps {
@@ -51,11 +54,15 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
   const clientId = profile?.clientId || userId;
   const partner_id = profile?.partner_id;
   const partner_fee = profile?.partner_fee ?? 0;
+  const withdraw_fee = profile?.withdraw_fee ?? 0;
+  const total_fee = partner_fee + withdraw_fee;
   const accessToken = profile?.access_token;
   const partner_address = profile?.partner_address;
+  const account_number = profile?.account_number || "";
+  const account_name = profile?.account_name || "";
   const currentAmount = Number(amountInput) || 0;
   // const usdcGross = currentAmount / HTG_TO_USDC_RATE;
-  const usdcNet = currentAmount - currentAmount * partner_fee;
+  const usdcNet = currentAmount - currentAmount * total_fee;
   const amountReceive = Number(usdcNet.toFixed(2));
 
   const loadBalances = async () => {
@@ -192,7 +199,7 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
 
         // Balances API can return the pre-swap snapshot for a few seconds
         // after on-chain settlement, so wait before re-reading.
-        await sleep(7000);
+        await sleep(15000);
 
         const fresh = await loadBalances();
         setSwapLoading(false);
@@ -218,11 +225,13 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
           method: "mobile_money",
           provider: "MonCash",
           notes: "Transfer Automatic",
-          account_number: "888888888888",
-          account_name: "Jean S. Beaudry",
+          account_number,
+          account_name,
           metadata: {
             partner_fee,
+            withdraw_fee,
             partner_address,
+            from_partner: true,
           },
         }),
       });
@@ -242,6 +251,29 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
     } finally {
       setInitLoading(false);
     }
+  };
+
+  const pollOfframpStatus = async (offrampId: string) => {
+    const POLL_INTERVAL_MS = 10000;
+    const MAX_POLL_MS = 2 * 60 * 1000;
+    const deadline = Date.now() + MAX_POLL_MS;
+
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(
+          `/api/offramps/${encodeURIComponent(offrampId)}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json().catch(() => ({}));
+        const status: string | undefined = json?.data?.[0]?.status;
+        if (status === "COMPLETE" || status === "COMPLETED") return "success";
+        if (status === "FAILED" || status === "CANCELLED") return "failed";
+      } catch (e) {
+        console.error("Offramp poll error", e);
+      }
+      await sleep(POLL_INTERVAL_MS);
+    }
+    return "timeout";
   };
 
   const executeTransaction = async (code: string) => {
@@ -266,7 +298,23 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
         otpInputs.current[0]?.focus();
         return;
       }
-      setPhase("success");
+
+      const offrampId: string | undefined = data?.id;
+      if (!offrampId) {
+        setPhase("success");
+        return;
+      }
+
+      const result = await pollOfframpStatus(offrampId);
+      if (result === "success") {
+        setPhase("success");
+      } else if (result === "failed") {
+        setError(t.partnerWithdraw.failedMessage);
+        setPhase("failed");
+      } else {
+        setError(t.partnerWithdraw.processingNotice);
+        setPhase("failed");
+      }
     } catch (e: any) {
       setError(e?.message || "Network error");
       setOtp(Array(CODE_LENGTH).fill(""));
@@ -287,11 +335,6 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
     if (value && idx < CODE_LENGTH - 1) {
       otpInputs.current[idx + 1]?.focus();
     }
-
-    const code = next.join("");
-    if (idx === CODE_LENGTH - 1 && value && next.every((d) => d !== "")) {
-      executeTransaction(code);
-    }
   };
 
   const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
@@ -308,13 +351,8 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
     const next = Array(CODE_LENGTH).fill("");
     for (let i = 0; i < CODE_LENGTH && i < text.length; i++) next[i] = text[i];
     setOtp(next);
-    const fullCode = next.join("");
-    if (fullCode.length === CODE_LENGTH && next.every((d) => d !== "")) {
-      executeTransaction(fullCode);
-    } else {
-      const focusIdx = Math.min(text.length, CODE_LENGTH - 1);
-      otpInputs.current[focusIdx]?.focus();
-    }
+    const focusIdx = Math.min(text.length, CODE_LENGTH - 1);
+    otpInputs.current[focusIdx]?.focus();
   };
 
   const resetToAmount = () => {
@@ -450,6 +488,16 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
                   </span>
                 </div>
               )}
+              {withdraw_fee > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">
+                    {t.partnerWithdraw.withdrawFee}
+                  </span>
+                  <span className="font-semibold text-slate-900 tabular-nums">
+                    {(withdraw_fee * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
               <div className="border-t border-slate-200 pt-2 flex justify-between">
                 <span className="text-slate-500">
                   {t.partnerWithdraw.youWillReceive}
@@ -555,6 +603,22 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
 
           <button
             type="button"
+            onClick={() => executeTransaction(otp.join(""))}
+            disabled={
+              execLoading ||
+              otp.some((d) => d === "") ||
+              otp.join("").length !== CODE_LENGTH
+            }
+            className="w-full bg-[#0DB7D0] hover:bg-[#0DB7D0]/80 disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-lg shadow-sm transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+          >
+            {execLoading && <Loader2 size={18} className="animate-spin" />}
+            {execLoading
+              ? t.partnerWithdraw.verifying
+              : t.partnerWithdraw.verify}
+          </button>
+
+          <button
+            type="button"
             onClick={resetToAmount}
             disabled={execLoading}
             className="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50"
@@ -573,6 +637,10 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
           <p className="text-xs text-slate-500 mb-5">
             {t.partnerWithdraw.successMessage}
           </p>
+
+          <div className="bg-amber-50 border border-amber-100 text-amber-700 text-xs rounded-lg p-3 mb-3 text-left">
+            {t.partnerWithdraw.processingNotice}
+          </div>
 
           <div className="bg-slate-50 rounded-lg p-4 mb-2 text-left space-y-2 text-xs">
             <div className="flex justify-between">
@@ -598,6 +666,16 @@ const WithdrawPartnerStep = ({ t, amount, profile }: WithdrawStepProps) => {
                 </span>
                 <span className="font-semibold text-slate-900 tabular-nums">
                   {(partner_fee * 100).toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {withdraw_fee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">
+                  {t.partnerWithdraw.withdrawFee}
+                </span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {(withdraw_fee * 100).toFixed(1)}%
                 </span>
               </div>
             )}

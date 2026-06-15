@@ -149,6 +149,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       minWithdraw: "Minimum withdrawal: {amount} HTG",
       exchangeRate: "Exchange rate",
       partnerFee: "Partner fee",
+      withdrawFee: "Withdrawal fee",
       youWillReceive: "You will receive",
       sendCode: "Send code",
       sending: "Sending…",
@@ -173,6 +174,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       willAutoConvert: "Will auto-convert {usdc} USDC to cover {htg} HTG",
       swapFailed: "Currency conversion failed. Please try again.",
       insufficientCombined: "Insufficient balance (HTG + USDC) to cover this withdrawal",
+      processingNotice: "Your MonCash withdrawal will be processed within 15 to 120 minutes.",
     },
     success: {
       title: "Transfer Initiated!",
@@ -350,6 +352,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       minWithdraw: "Retrait minimum : {amount} HTG",
       exchangeRate: "Taux de change",
       partnerFee: "Frais partenaire",
+      withdrawFee: "Frais de retrait",
       youWillReceive: "Vous recevrez",
       sendCode: "Envoyer le code",
       sending: "Envoi…",
@@ -374,6 +377,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       willAutoConvert: "Conversion automatique de {usdc} USDC pour couvrir {htg} HTG",
       swapFailed: "Échec de la conversion. Veuillez réessayer.",
       insufficientCombined: "Solde insuffisant (HTG + USDC) pour ce retrait",
+      processingNotice: "Votre retrait MonCash sera traité dans 15 à 120 minutes.",
     },
     success: {
       title: "Transfert initié !",
@@ -554,6 +558,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       minWithdraw: "Retire minimòm: {amount} HTG",
       exchangeRate: "To echanj",
       partnerFee: "Frè patnè",
+      withdrawFee: "Frè retrè",
       youWillReceive: "Wap resevwa",
       sendCode: "Voye kòd la",
       sending: "Ap voye…",
@@ -578,6 +583,7 @@ export const TRANSLATIONS: Record<string, Translations> = {
       willAutoConvert: "N ap konvèti {usdc} USDC pou kouvri {htg} HTG",
       swapFailed: "Konvèsyon an echwe. Tanpri eseye ankò.",
       insufficientCombined: "Pa gen ase lajan (HTG + USDC) pou retrè sa a",
+      processingNotice: "Retrè MonCash ou a ap trete nan 15 a 120 minit.",
     },
     success: {
       title: "Transfè Lanse!",

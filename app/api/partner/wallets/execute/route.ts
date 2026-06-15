@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASEURL}/wallets/execute?code=${encodeURIComponent(code)}`,
+      `${process.env.NEXT_PUBLIC_BASEURL}/wallets/partner/execute?code=${encodeURIComponent(code)}`,
       {
         method: "GET",
         headers: {

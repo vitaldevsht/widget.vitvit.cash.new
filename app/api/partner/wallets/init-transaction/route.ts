@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASEURL}/wallets/init-transaction`,
+      `${process.env.NEXT_PUBLIC_BASEURL}/wallets/partner/init-transaction`,
       {
         method: "POST",
         headers: {

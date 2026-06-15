@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
 
 export interface VaultRate {
   label: string;
@@ -66,9 +65,9 @@ export async function POST(request: NextRequest) {
     const amount = request.headers.get("amount") ?? body.amount;
     const partner_id = request.headers.get("partner_id") ?? body.partner_id;
     const partner_fee = request.headers.get("partner_fee") ?? body.partner_fee;
-    const partner_address =
-      request.headers.get("partner_address") ?? body.partner_address;
-
+    const account_number =
+      request.headers.get("account_number") ?? body.account_number;
+    const WITHDRAW_AUTO_FEE = parseFloat(process.env.WITHDRAW_AUTO_FEE) || 0;
     const missing: string[] = [];
     if (!partner_id) missing.push("partner_id");
     if (!vitvit_user_id) missing.push("vitvit_user_id");
@@ -106,42 +105,44 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+    // console.log(vitvit_user_id);
 
-    const { data: userRow, error: userRowError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", vitvit_user_id)
-      .single();
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASEURL}/users/id/${vitvit_user_id}/key-value`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.PARTNER_SECRET}`,
+        },
+      },
+    );
 
-    if (userRowError) {
-      if (userRowError.code === "PGRST116") {
-        return httpError(404, "USER_NOT_FOUND", "User not found", {
-          details: userRowError.message,
-        });
-      }
-      return httpError(502, "DB_ERROR", "Database query failed", {
-        details: userRowError.message,
-      });
+    if (!response.ok) {
+      const errorText = await response.text();
+      return NextResponse.json(
+        { error: `Upstream error: ${response.status}`, details: errorText },
+        { status: response.status },
+      );
     }
 
-    if (!userRow) {
-      return httpError(404, "USER_NOT_FOUND", "User not found");
-    }
+    const data = await response.json();
 
     const baseUrl = request.nextUrl.origin;
     const params = new URLSearchParams({
-      clientId: String(userRow.id),
-      phone: String(userRow.phone ?? ""),
+      clientId: String(data.id),
+      phone: String(data.phone ?? ""),
+      account_name: `${data.first_name} ${data.last_name}`,
       partner_id: String(partner_id ?? ""),
       external_address: String(deposit_address),
       amount: String(amountNum),
       partner_fee: String(partner_fee ?? ""),
-      partner_address: String(partner_address ?? ""),
     });
 
     return NextResponse.json({
       ok: 1,
-      ["url_" + initOp]: `${baseUrl}/partner/${initOp}?${params.toString()}`,
+      ["url_" + initOp]:
+        `${baseUrl}/partner/${initOp}?${params.toString()}${initOp === "withdraw" ? `&withdraw_fee=${WITHDRAW_AUTO_FEE}` : ""}${initOp === "withdraw" ? `&account_number=${account_number}` : ""}`,
     });
   } catch (error: any) {
     console.error("log-user API Error:", error);

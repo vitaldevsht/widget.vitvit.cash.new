@@ -113,11 +113,10 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
   );
   // Platform "BUY USDC" rate (HTGV -> USDC): how many HTGV per 1 USDC when buying.
   // Falls back to the static constant until the API responds.
-  const [htgToUsdcRate, setHtgToUsdcRate] =
-    useState<number>(HTG_TO_USDC_RATE);
+  const [htgToUsdcRate, setHtgToUsdcRate] = useState<number>(HTG_TO_USDC_RATE);
   const forexTriggeredRef = useRef(false);
   const pollStartRef = useRef<number | null>(null);
-  const MAX_POLL_MS = 90_000;
+  const MAX_POLL_MS = 600_000;
   const POLL_INTERVAL_MS = 15_000;
   const MIN_DEPOSIT_HTG = 10;
 
@@ -343,7 +342,8 @@ const DepositStep = ({ t, amount, profile }: DepositStepProps) => {
         // Platform buy-USDC rate (1 USDC = N HTGV). Used to size the HTGV->USDC
         // exchange shown in the quote and the final HTG charge.
         const buyUsdc = data?.rates?.find(
-          (r: { label?: string; HTGV_USDC?: number }) => r?.label === "BUY USDC",
+          (r: { label?: string; HTGV_USDC?: number }) =>
+            r?.label === "BUY USDC",
         );
         const buyRate =
           typeof buyUsdc?.HTGV_USDC === "number" && buyUsdc.HTGV_USDC > 0
