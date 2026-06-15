@@ -138,6 +138,7 @@ export interface Translations {
     minWithdraw: string;
     exchangeRate: string;
     partnerFee: string;
+    withdrawFee: string;
     youWillReceive: string;
     sendCode: string;
     sending: string;
@@ -161,6 +162,7 @@ export interface Translations {
     willAutoConvert: string;
     swapFailed: string;
     insufficientCombined: string;
+    processingNotice: string;
   };
   success: {
     title: string;

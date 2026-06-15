@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Copy, LogOut } from "lucide-react";
 import { useAppStore } from "../store";
+import { clearSession } from "../lib/sessionLogout";
 
 interface AccountMenuProps {
   isOpen: boolean;
@@ -8,7 +9,7 @@ interface AccountMenuProps {
 }
 
 const AccountMenu = ({ isOpen, onClose }: AccountMenuProps) => {
-  const { walletAddress, phone, email, logout } = useAppStore();
+  const { walletAddress, phone, email } = useAppStore();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,23 +84,7 @@ const AccountMenu = ({ isOpen, onClose }: AccountMenuProps) => {
       {/* Sign Out */}
       <button
         onClick={async () => {
-          try {
-            await fetch("/api/partner/session", {
-              method: "DELETE",
-              credentials: "include",
-              cache: "no-store",
-            });
-          } catch (e) {
-            console.error("Failed to clear server session", e);
-          }
-          try {
-            sessionStorage.removeItem("partner.access_token");
-            sessionStorage.removeItem("partner.external_address");
-          } catch {}
-          try {
-            localStorage.removeItem("vitvit-storage");
-          } catch {}
-          logout();
+          await clearSession();
           onClose();
         }}
         className="w-full flex items-center justify-center gap-2 p-3 text-red-500 hover:bg-red-50 rounded-lg transition-all text-xs font-bold uppercase tracking-wide"
