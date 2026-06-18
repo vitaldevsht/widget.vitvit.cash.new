@@ -15,18 +15,21 @@ export interface VaultResponse {
 
 export async function GET() {
   try {
-    const response = await fetch(process.env.VAULT_API_URL!, {
-      headers: {
-        Authorization: `Bearer ${process.env.VAULT_API_TOKEN}`,
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASEURL}/vaults/55db64ff-3922-4b7c-8385-66f67fb2e919`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PARTNER_SECRET}`,
+        },
+        next: { revalidate: 60 }, // Cache for 60 seconds
       },
-      next: { revalidate: 60 }, // Cache for 60 seconds
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
       return NextResponse.json(
         { error: `Upstream error: ${response.status}`, details: errorText },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -50,7 +53,7 @@ export async function GET() {
     console.error("Quote API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error", details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
