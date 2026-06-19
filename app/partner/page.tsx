@@ -84,6 +84,16 @@ const PartnerContent: React.FC = () => {
 
   const profilePhone = searchParams.get("phone") || "";
 
+  // Resolve the effective user: URL param (partner-embedded mode) first, then
+  // the connected user's session (logged-in mode), then the persisted store id.
+  const connectedUserId = authData?.user?.id || "";
+  const effectiveUserId =
+    searchParams.get("clientId") ||
+    searchParams.get("userId") ||
+    connectedUserId ||
+    userId ||
+    "";
+
   const profile = {
     clientId: searchParams.get("clientId") || searchParams.get("userId") || "",
     phone: profilePhone,
@@ -109,6 +119,7 @@ const PartnerContent: React.FC = () => {
   const [changeFrom, setChangeFrom] = useState<"HTGV" | "USDC">("HTGV");
   const [changeAmount, setChangeAmount] = useState<string>("");
   const [changeSubmitting, setChangeSubmitting] = useState(false);
+  const [changeSettling, setChangeSettling] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
   const [changeSuccess, setChangeSuccess] = useState<string | null>(null);
   const [balancesRefreshKey, setBalancesRefreshKey] = useState(0);
@@ -119,6 +130,9 @@ const PartnerContent: React.FC = () => {
 
   const EXTERNAL_ADDRESS_KEY = "partner.external_address";
 
+  useEffect(() => {
+    setExternalAddressDraft(externalAddress ?? "");
+  }, [externalAddress]);
   const saveExternalAddress = () => {
     const trimmed = externalAddressDraft.trim();
     if (trimmed) {
@@ -195,6 +209,7 @@ const PartnerContent: React.FC = () => {
       available: string;
       max: string;
       confirmChange: string;
+      settling: string;
       cancel: string;
       insufficient: string;
       externalAddress: string;
@@ -215,6 +230,7 @@ const PartnerContent: React.FC = () => {
       available: "Available",
       max: "Max",
       confirmChange: "Confirm exchange",
+      settling: "Finalizing…",
       cancel: "Cancel",
       insufficient: "Insufficient balance",
       externalAddress: "External address",
@@ -234,6 +250,7 @@ const PartnerContent: React.FC = () => {
       available: "Disponible",
       max: "Max",
       confirmChange: "Confirmer l'échange",
+      settling: "Finalisation…",
       cancel: "Annuler",
       insufficient: "Solde insuffisant",
       externalAddress: "Adresse externe",
@@ -253,6 +270,7 @@ const PartnerContent: React.FC = () => {
       available: "Disponib",
       max: "Maks",
       confirmChange: "Konfime chanjman",
+      settling: "N ap fini…",
       cancel: "Anile",
       insufficient: "Pa gen ase lajan",
       externalAddress: "Adrès deyò",
@@ -283,7 +301,8 @@ const PartnerContent: React.FC = () => {
     setIsMounted(true);
     setStep(2);
 
-    if (profile.clientId) setUserId(profile.clientId);
+    if (effectiveUserId && effectiveUserId !== userId)
+      setUserId(effectiveUserId);
     if (profile.email) setEmail(profile.email);
 
     if (profile.external_address) {
@@ -297,7 +316,7 @@ const PartnerContent: React.FC = () => {
         if (stored) setExternalAddress(stored);
       } catch {}
     }
-  }, [profile.clientId, profile.email, profile.external_address]);
+  }, [effectiveUserId, profile.email, profile.external_address]);
 
   useEffect(() => {
     if (!profilePhone) return;
@@ -363,6 +382,9 @@ const PartnerContent: React.FC = () => {
     };
   }, [userId, accessToken, balancesRefreshKey, setBalanceHTGV, setBalanceUSDC]);
 
+  const sleep = (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms));
+
   const handleConfirmChange = async () => {
     if (!userId || changeDisabled || changeSubmitting) return;
     setChangeSubmitting(true);
@@ -376,16 +398,19 @@ const PartnerContent: React.FC = () => {
         },
         body: JSON.stringify({
           user_id: userId,
+          partner_id: profile.partner_id || process.env.NEXT_PUBLIC_PARTNER_KEY,
           token_1: changeFrom,
           token_2: changeTo,
           amount: changeAmtNum,
-          sent_to: sent_to_addr,
+          sent_to: externalAddressDraft,
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok || data?.error) {
         throw new Error(
-          data?.details || data?.error || `Request failed (${res.status})`,
+          typeof data?.details === "string"
+            ? data.details
+            : data?.error || `Request failed (${res.status})`,
         );
       }
       setChangeSuccess(
@@ -394,13 +419,20 @@ const PartnerContent: React.FC = () => {
           changeTo,
         )} ${changeTo}`,
       );
-      setChangeAmount("");
+
+      // The balances API can return the pre-swap snapshot for a few seconds
+      // after on-chain settlement, so wait before refreshing to avoid showing
+      // stale numbers.
+      setChangeSettling(true);
+      await sleep(15000);
       setBalancesRefreshKey((k) => k + 1);
+      setChangeAmount("");
     } catch (e: any) {
       console.error("Exchange failed", e);
       setChangeError(e?.message || "Exchange failed");
     } finally {
       setChangeSubmitting(false);
+      setChangeSettling(false);
     }
   };
 
@@ -486,7 +518,7 @@ const PartnerContent: React.FC = () => {
           {accessToken ? (
             <div className="">
               <Header />
-
+              {/* {externalAddressDraft} */}
               <div className="transition-opacity duration-300 min-h-[55vh]">
                 {balancesError && (
                   <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
@@ -734,7 +766,7 @@ const PartnerContent: React.FC = () => {
                     {changeSubmitting && (
                       <Loader2 size={14} className="animate-spin" />
                     )}
-                    {fl.confirmChange}
+                    {changeSettling ? fl.settling : fl.confirmChange}
                   </button>
                 </div>
               </div>

@@ -30,9 +30,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { user_id, token_1, token_2, amount, sent_to } = body;
 
-    const partner_id =
-      body.partner_id || decodeJwtSub(process.env.VAULT_API_TOKEN);
-    const vault_id = body.vault_id || vaultIdFromUrl(process.env.VAULT_API_URL);
+    const partner_id = body.partner_id || process.env.NEXT_PUBLIC_PARTNER_KEY;
+    const vault_id = body.vault_id || process.env.VAULT_ID;
 
     if (
       !partner_id ||
