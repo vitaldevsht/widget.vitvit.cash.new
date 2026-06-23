@@ -37,7 +37,7 @@ export async function GET() {
 
     // Extract rates for easier consumption
     const buyRate = data.rates.find((r) => r.label === "BUY USDC")?.HTGV_USDC;
-    const sellRate = data.rates.find((r) => r.label === "SEL USDC")?.USDC_HTGV;
+    const sellRate = data.rates.find((r) => r.label === "SELL USDC")?.USDC_HTGV;
 
     return NextResponse.json({
       vaultId: data.id,
